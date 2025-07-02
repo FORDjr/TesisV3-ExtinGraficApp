@@ -1,78 +1,37 @@
 package org.example.project.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.example.project.data.model.ProductoUI
 import org.example.project.data.model.ProductoEstado
+import org.example.project.ui.viewmodel.InventarioViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventarioContent() {
-    var searchText by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("Todas") }
+    // Crear una instancia temporal del ViewModel hasta que se configure correctamente
+    val viewModel = remember { InventarioViewModel() }
+
+    // Observar estados del ViewModel
+    val productos by viewModel.productosFiltrados.collectAsState()
+    val searchText by viewModel.searchText.collectAsState()
+    val selectedCategory by viewModel.selectedCategory.collectAsState()
+    val categorias by viewModel.categorias.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val estadisticas by viewModel.estadisticas.collectAsState()
+
     var showAddDialog by remember { mutableStateOf(false) }
-
-    // Estado temporal con datos de ejemplo (luego conectaremos con la API)
-    var productos by remember {
-        mutableStateOf(
-            listOf(
-                ProductoUI(
-                    id = 1,
-                    nombre = "Laptop Dell XPS 13",
-                    categoria = "Electrónicos",
-                    stock = 15,
-                    stockMinimo = 5,
-                    precio = 1299.99,
-                    descripcion = "Laptop profesional Dell XPS 13",
-                    fechaIngreso = "2024-01-10",
-                    estado = ProductoEstado.ACTIVO
-                ),
-                ProductoUI(
-                    id = 2,
-                    nombre = "Mouse Logitech MX Master",
-                    categoria = "Accesorios",
-                    stock = 3,
-                    stockMinimo = 5,
-                    precio = 99.99,
-                    descripcion = "Mouse ergonómico profesional",
-                    fechaIngreso = "2024-01-08",
-                    estado = ProductoEstado.ACTIVO
-                ),
-                ProductoUI(
-                    id = 3,
-                    nombre = "Monitor Samsung 24\"",
-                    categoria = "Electrónicos",
-                    stock = 0,
-                    stockMinimo = 2,
-                    precio = 249.99,
-                    descripcion = "Monitor Full HD 24 pulgadas",
-                    fechaIngreso = "2024-01-05",
-                    estado = ProductoEstado.AGOTADO
-                )
-            )
-        )
-    }
-
-    val categorias = listOf("Todas") + productos.map { it.categoria }.distinct()
-    val productosFiltrados = productos.filter { producto ->
-        val matchesSearch = producto.nombre.contains(searchText, ignoreCase = true) ||
-                producto.categoria.contains(searchText, ignoreCase = true)
-        val matchesCategory = selectedCategory == "Todas" || producto.categoria == selectedCategory
-        matchesSearch && matchesCategory
-    }
 
     Column(
         modifier = Modifier
@@ -92,7 +51,7 @@ fun InventarioContent() {
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "${productos.size} productos registrados",
+                    text = "${estadisticas.totalProductos} productos registrados",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -114,10 +73,43 @@ fun InventarioContent() {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Estadísticas rápidas
-        StatsCards(productos = productos)
+        // Estadísticas rápidas (ahora usando datos reales)
+        StatsCards(estadisticas = estadisticas)
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        // Mostrar error si existe
+        error?.let { errorMessage ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Error",
+                        tint = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(
+                        onClick = { viewModel.limpiarError() }
+                    ) {
+                        Text("Cerrar")
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
         // Filtros y búsqueda
         Row(
@@ -127,20 +119,21 @@ fun InventarioContent() {
             // Barra de búsqueda
             OutlinedTextField(
                 value = searchText,
-                onValueChange = { searchText = it },
+                onValueChange = viewModel::actualizarBusqueda,
                 label = { Text("Buscar productos...") },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = "Buscar")
                 },
                 modifier = Modifier.weight(1f),
-                singleLine = true
+                singleLine = true,
+                enabled = !isLoading
             )
 
             // Filtro por categoría
             var expanded by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(
                 expanded = expanded,
-                onExpandedChange = { expanded = !expanded },
+                onExpandedChange = { expanded = !expanded && !isLoading },
                 modifier = Modifier.width(160.dp)
             ) {
                 OutlinedTextField(
@@ -151,7 +144,8 @@ fun InventarioContent() {
                     trailingIcon = {
                         ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                     },
-                    modifier = Modifier.menuAnchor()
+                    modifier = Modifier.menuAnchor(),
+                    enabled = !isLoading
                 )
                 ExposedDropdownMenu(
                     expanded = expanded,
@@ -161,7 +155,7 @@ fun InventarioContent() {
                         DropdownMenuItem(
                             text = { Text(categoria) },
                             onClick = {
-                                selectedCategory = categoria
+                                viewModel.actualizarCategoria(categoria)
                                 expanded = false
                             }
                         )
@@ -172,32 +166,77 @@ fun InventarioContent() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Lista de productos
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        // Botón de refrescar
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            items(productosFiltrados) { producto ->
-                ProductCard(
-                    producto = producto,
-                    onEdit = { /* TODO: Implementar edición */ },
-                    onDelete = { /* TODO: Implementar eliminación */ }
+            Text(
+                text = if (isLoading) "Cargando..." else "Productos:",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            IconButton(
+                onClick = { viewModel.cargarProductos() },
+                enabled = !isLoading
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Refrescar",
+                    tint = if (isLoading) MaterialTheme.colorScheme.onSurfaceVariant
+                           else MaterialTheme.colorScheme.primary
                 )
             }
+        }
 
-            if (productosFiltrados.isEmpty()) {
-                item {
-                    EmptyState(searchText = searchText)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Lista de productos con indicador de carga
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(productos) { producto ->
+                    ProductCard(
+                        producto = producto,
+                        onEdit = { /* TODO: Implementar edición */ },
+                        onDelete = {
+                            viewModel.eliminarProducto(
+                                id = producto.id,
+                                onSuccess = {
+                                    // El producto ya se elimina automáticamente de la lista
+                                },
+                                onError = { error ->
+                                    // El error ya se maneja en el ViewModel
+                                }
+                            )
+                        }
+                    )
                 }
+
+                if (productos.isEmpty() && !isLoading) {
+                    item {
+                        EmptyState(searchText = searchText)
+                    }
+                }
+            }
+
+            // Indicador de carga
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
         }
     }
 
-    // Diálogo para agregar producto (placeholder)
+    // Diálogo para agregar producto (placeholder mejorado)
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
             title = { Text("Agregar Producto") },
-            text = { Text("Formulario para agregar producto - Próximamente se conectará con la API") },
+            text = { Text("Formulario para agregar producto conectado con la API - Próximamente implementado") },
             confirmButton = {
                 TextButton(onClick = { showAddDialog = false }) {
                     Text("Cerrar")
@@ -208,11 +247,11 @@ fun InventarioContent() {
 }
 
 @Composable
-private fun StatsCards(productos: List<ProductoUI>) {
-    val totalProductos = productos.size
-    val productosBajoStock = productos.count { it.esBajoStock }
-    val productosAgotados = productos.count { it.estado == ProductoEstado.AGOTADO }
-    val valorTotal = productos.sumOf { it.precio * it.stock }
+private fun StatsCards(estadisticas: org.example.project.ui.viewmodel.EstadisticasInventario) {
+    val totalProductos = estadisticas.totalProductos
+    val productosBajoStock = estadisticas.productosBajoStock
+    val productosAgotados = estadisticas.productosAgotados
+    val valorTotal = estadisticas.valorTotal
 
     Row(
         modifier = Modifier.fillMaxWidth(),
