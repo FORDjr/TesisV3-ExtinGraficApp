@@ -1,19 +1,18 @@
-This is a Kotlin Multiplatform project targeting Android, iOS, Desktop, Server.
+Este es un proyecto Kotlin Multiplataforma dirigido a Android, iOS, Escritorio, Servidor.
 
-* `/composeApp` is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - `commonMain` is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    `iosMain` would be the right folder for such calls.
+* `/composeApp` es para el código que será compartido a través de sus aplicaciones Compose Multiplataforma.
+  Contiene varias subcarpetas:
+  - `commonMain` es para el código que es común para todos los objetivos.
+  - Otras carpetas son para código Kotlin que se compilará sólo para la plataforma indicada en el nombre de la carpeta.
+    Por ejemplo, si quieres usar CoreCrypto de Apple para la parte iOS de tu aplicación Kotlin,
+ `iosMain` sería la carpeta adecuada para tales llamadas.
 
-* `/iosApp` contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform, 
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+* `/iosApp` contiene las aplicaciones iOS. Incluso si estás compartiendo tu UI con Compose Multiplatform, 
+ necesitas este punto de entrada para tu aplicación iOS. Aquí es también donde debes añadir el código SwiftUI para tu proyecto.
 
-* `/server` is for the Ktor server application.
+* `/server` es para la aplicación del servidor Ktor.
 
-* `/shared` is for the code that will be shared between all targets in the project.
-  The most important subfolder is `commonMain`. If preferred, you can add code to the platform-specific folders here too.
+* `/shared` es para el código que será compartido entre todos los objetivos en el proyecto.
+  La subcarpeta más importante es `commonMain`. Si lo prefiere, puede añadir código a las carpetas específicas de la plataforma aquí también.
 
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
