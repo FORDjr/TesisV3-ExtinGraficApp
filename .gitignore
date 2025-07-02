@@ -1,0 +1,105 @@
+# Gradle
+.gradle/
+build/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+local.properties
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+*.jks
+
+# IntelliJ IDEA / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+atlassian-ide-plugin.xml
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.tmp
+*.temp
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Kotlin/Native
+.konan/
+
+# Compose Multiplatform
+.compose/
+
+# iOS
+*.xcuserstate
+*.xcuserdatad
+xcuserdata/
+DerivedData/
+.build/
+build/
+Pods/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Backup files
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Database files (mantener solo los scripts SQL)
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos específicos del proyecto que NO queremos versionar
+# (mantener solo los archivos de configuración importantes)
