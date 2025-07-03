@@ -2,6 +2,7 @@ package org.example.project.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,11 +16,12 @@ import androidx.compose.ui.unit.dp
 import org.example.project.data.model.ProductoUI
 import org.example.project.data.model.ProductoEstado
 import org.example.project.ui.viewmodel.InventarioViewModel
+import org.example.project.ui.components.*
+import org.example.project.ui.theme.ExtintorColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventarioContent() {
-    // Crear una instancia temporal del ViewModel hasta que se configure correctamente
     val viewModel = remember { InventarioViewModel() }
 
     // Observar estados del ViewModel
@@ -32,438 +34,350 @@ fun InventarioContent() {
     val estadisticas by viewModel.estadisticas.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var selectedProduct by remember { mutableStateOf<ProductoUI?>(null) }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
-        // Header con título y botón agregar
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // Header elegante con gradiente extintor
+        ExtintorGradientHeader(
+            title = "Gestión de Inventario",
+            subtitle = "Control total de extintores y equipos",
+            icon = Icons.Default.Home
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
         ) {
-            Column {
-                Text(
-                    text = "Inventario",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${estadisticas.totalProductos} productos registrados",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Button(
-                onClick = { showAddDialog = true },
-                modifier = Modifier.height(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Agregar",
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Agregar Producto")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Estadísticas rápidas (ahora usando datos reales)
-        StatsCards(estadisticas = estadisticas)
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Mostrar error si existe
-        error?.let { errorMessage ->
-            Card(
+            // Estadísticas en cards elegantes
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                ExtintorCard(
+                    modifier = Modifier.weight(1f),
+                    elevated = true
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = "Error",
-                        tint = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = errorMessage,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.weight(1f)
+                        text = "Total",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ExtintorColors.Gray600
                     )
-                    TextButton(
-                        onClick = { viewModel.limpiarError() }
-                    ) {
-                        Text("Cerrar")
-                    }
+                    Text(
+                        text = "${estadisticas.totalProductos}",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = ExtintorColors.CharcoalBlack
+                    )
+                }
+
+                ExtintorCard(
+                    modifier = Modifier.weight(1f),
+                    elevated = true
+                ) {
+                    Text(
+                        text = "Stock Bajo",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ExtintorColors.Gray600
+                    )
+                    Text(
+                        text = "${estadisticas.productosBajoStock}",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = ExtintorColors.Warning
+                    )
+                }
+
+                ExtintorCard(
+                    modifier = Modifier.weight(1f),
+                    elevated = true
+                ) {
+                    Text(
+                        text = "Agotados",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ExtintorColors.Gray600
+                    )
+                    Text(
+                        text = "${estadisticas.productosAgotados}",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = ExtintorColors.ExtintorRed
+                    )
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
 
-        // Filtros y búsqueda
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Barra de búsqueda
-            OutlinedTextField(
-                value = searchText,
-                onValueChange = viewModel::actualizarBusqueda,
-                label = { Text("Buscar productos...") },
-                leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = "Buscar")
-                },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                enabled = !isLoading
-            )
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Filtro por categoría
-            var expanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded && !isLoading },
-                modifier = Modifier.width(160.dp)
+            // Controles de búsqueda y filtros
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
-                    value = selectedCategory,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Categoría") },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                    },
-                    modifier = Modifier.menuAnchor(),
-                    enabled = !isLoading
+                // Campo de búsqueda elegante FUNCIONANDO
+                ExtintorTextField(
+                    value = searchText,
+                    onValueChange = { viewModel.updateSearchText(it) },
+                    label = "Buscar productos",
+                    placeholder = "Nombre, categoría...",
+                    leadingIcon = Icons.Default.Search,
+                    modifier = Modifier.weight(1f)
                 )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
+
+                // Botón agregar con estilo extintor FUNCIONANDO
+                ExtintorButton(
+                    text = "Agregar",
+                    onClick = { showAddDialog = true },
+                    icon = Icons.Default.Add,
+                    variant = ButtonVariant.Primary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Filtros de categoría con chips elegantes FUNCIONANDO
+            if (categorias.isNotEmpty()) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
-                    categorias.forEach { categoria ->
-                        DropdownMenuItem(
-                            text = { Text(categoria) },
-                            onClick = {
-                                viewModel.actualizarCategoria(categoria)
-                                expanded = false
-                            }
+                    items(categorias) { categoria ->
+                        ExtintorChip(
+                            text = categoria,
+                            selected = selectedCategory == categoria,
+                            onClick = { viewModel.updateSelectedCategory(categoria) }
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
             }
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            // Lista de productos
+            when {
+                isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = ExtintorColors.ExtintorRed
+                        )
+                    }
+                }
 
-        // Botón de refrescar
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (isLoading) "Cargando..." else "Productos:",
-                style = MaterialTheme.typography.titleMedium
-            )
+                error != null -> {
+                    ExtintorCard(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = ExtintorColors.ExtintorRed,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Error al cargar productos",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = ExtintorColors.ExtintorRed
+                                )
+                                Text(
+                                    text = error!!,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = ExtintorColors.Gray600
+                                )
+                            }
+                        }
 
-            IconButton(
-                onClick = { viewModel.cargarProductos() },
-                enabled = !isLoading
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Refrescar",
-                    tint = if (isLoading) MaterialTheme.colorScheme.onSurfaceVariant
-                           else MaterialTheme.colorScheme.primary
-                )
-            }
-        }
+                        Spacer(modifier = Modifier.height(12.dp))
 
-        Spacer(modifier = Modifier.height(8.dp))
+                        ExtintorButton(
+                            text = "Reintentar",
+                            onClick = {
+                                viewModel.limpiarError()
+                                viewModel.cargarProductos()
+                            },
+                            variant = ButtonVariant.Secondary
+                        )
+                    }
+                }
 
-        // Lista de productos con indicador de carga
-        Box(modifier = Modifier.fillMaxSize()) {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(productos) { producto ->
-                    ProductCard(
-                        producto = producto,
-                        onEdit = { /* TODO: Implementar edición */ },
-                        onDelete = {
-                            viewModel.eliminarProducto(
-                                id = producto.id,
-                                onSuccess = {
-                                    // El producto ya se elimina automáticamente de la lista
+                productos.isEmpty() -> {
+                    ExtintorCard(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Home,
+                                contentDescription = null,
+                                tint = ExtintorColors.Gray400,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "No hay productos",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = ExtintorColors.Gray600
+                            )
+                            Text(
+                                text = "Agrega tu primer producto al inventario",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = ExtintorColors.Gray500
+                            )
+                        }
+                    }
+                }
+
+                else -> {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(productos) { producto ->
+                            ProductoCard(
+                                producto = producto,
+                                onEdit = {
+                                    selectedProduct = producto
+                                    showEditDialog = true
                                 },
-                                onError = { error ->
-                                    // El error ya se maneja en el ViewModel
+                                onDelete = {
+                                    viewModel.eliminarProducto(producto.id)
                                 }
                             )
                         }
-                    )
-                }
-
-                if (productos.isEmpty() && !isLoading) {
-                    item {
-                        EmptyState(searchText = searchText)
                     }
                 }
             }
-
-            // Indicador de carga
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center)
-                )
-            }
         }
     }
 
-    // Diálogo para agregar producto (placeholder mejorado)
+    // Dialog para agregar producto FUNCIONANDO
     if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = { Text("Agregar Producto") },
-            text = { Text("Formulario para agregar producto conectado con la API - Próximamente implementado") },
-            confirmButton = {
-                TextButton(onClick = { showAddDialog = false }) {
-                    Text("Cerrar")
-                }
+        ProductDialog(
+            title = "Agregar Producto",
+            onDismiss = { showAddDialog = false },
+            onConfirm = { producto ->
+                viewModel.agregarProducto(producto)
+                showAddDialog = false
+            }
+        )
+    }
+
+    // Dialog para editar producto FUNCIONANDO
+    if (showEditDialog && selectedProduct != null) {
+        ProductDialog(
+            title = "Editar Producto",
+            initialProduct = selectedProduct,
+            onDismiss = {
+                showEditDialog = false
+                selectedProduct = null
+            },
+            onConfirm = { producto ->
+                viewModel.actualizarProducto(selectedProduct!!.id, producto)
+                showEditDialog = false
+                selectedProduct = null
             }
         )
     }
 }
 
 @Composable
-private fun StatsCards(estadisticas: org.example.project.ui.viewmodel.EstadisticasInventario) {
-    val totalProductos = estadisticas.totalProductos
-    val productosBajoStock = estadisticas.productosBajoStock
-    val productosAgotados = estadisticas.productosAgotados
-    val valorTotal = estadisticas.valorTotal
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        StatCard(
-            title = "Total",
-            value = totalProductos.toString(),
-            icon = Icons.Default.List, // Cambiado: Folder por List
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(1f)
-        )
-
-        StatCard(
-            title = "Bajo Stock",
-            value = productosBajoStock.toString(),
-            icon = Icons.Default.Warning,
-            color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.weight(1f)
-        )
-
-        StatCard(
-            title = "Agotados",
-            value = productosAgotados.toString(),
-            icon = Icons.Default.Clear, // Cambiado: Cancel por Clear
-            color = MaterialTheme.colorScheme.outline,
-            modifier = Modifier.weight(1f)
-        )
-
-        StatCard(
-            title = "Valor Total",
-            value = "$${String.format("%.0f", valorTotal)}",
-            icon = Icons.Default.Star, // Cambiado: AttachMoney por Star
-            color = MaterialTheme.colorScheme.tertiary,
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun StatCard(
-    title: String,
-    value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = color,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = color
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun ProductCard(
+private fun ProductoCard(
     producto: ProductoUI,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ExtintorCard(
+        modifier = modifier,
+        elevated = true
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
         ) {
-            // Header del producto
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         text = producto.nombre,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.SemiBold,
+                        color = ExtintorColors.CharcoalBlack
                     )
-
-                    Text(
-                        text = producto.categoria,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    if (!producto.descripcion.isNullOrEmpty()) {
-                        Text(
-                            text = producto.descripcion,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // Acciones
-                Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Editar",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Eliminar",
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Información del producto
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Stock
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.List, // Cambiado: Folder por List
-                        contentDescription = "Stock",
-                        modifier = Modifier.size(16.dp),
-                        tint = when {
-                            producto.esBajoStock -> MaterialTheme.colorScheme.error
-                            producto.estado == ProductoEstado.AGOTADO -> MaterialTheme.colorScheme.outline
-                            else -> MaterialTheme.colorScheme.primary
+                    Spacer(modifier = Modifier.width(8.dp))
+                    StatusBadge(
+                        text = when (producto.estado) {
+                            ProductoEstado.ACTIVO -> "Activo"
+                            ProductoEstado.INACTIVO -> "Inactivo"
+                            ProductoEstado.AGOTADO -> "Agotado"
+                        },
+                        status = when (producto.estado) {
+                            ProductoEstado.ACTIVO -> StatusType.Success
+                            ProductoEstado.INACTIVO -> StatusType.Neutral
+                            ProductoEstado.AGOTADO -> StatusType.Error
                         }
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${producto.stock} unidades",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-
-                    if (producto.esBajoStock) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        AssistChip(
-                            onClick = { },
-                            label = { Text("Bajo Stock", style = MaterialTheme.typography.labelSmall) },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                labelColor = MaterialTheme.colorScheme.onErrorContainer
-                            ),
-                            border = null
-                        )
-                    }
                 }
 
-                // Precio
+                Spacer(modifier = Modifier.height(8.dp))
+
                 Text(
-                    text = producto.precioFormateado,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    text = "ID: ${producto.id}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ExtintorColors.Gray600
                 )
+
+                Text(
+                    text = "Stock: ${producto.stock}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ExtintorColors.Gray600
+                )
+
+                Text(
+                    text = "Precio: ${producto.precioFormateado}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ExtintorColors.Gray600
+                )
+
+                if (producto.descripcion != null) {
+                    Text(
+                        text = "Descripción: ${producto.descripcion}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ExtintorColors.Gray500
+                    )
+                }
+            }
+
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Editar",
+                        tint = ExtintorColors.Gray600
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Eliminar",
+                        tint = ExtintorColors.ExtintorRed
+                    )
+                }
             }
         }
-    }
-}
-
-@Composable
-private fun EmptyState(searchText: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            imageVector = Icons.Default.Search, // Cambiado: SearchOff por Search
-            contentDescription = "Sin resultados",
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = if (searchText.isEmpty()) "No hay productos registrados" else "No se encontraron productos",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = if (searchText.isEmpty()) "Agrega tu primer producto" else "Intenta con otros términos de búsqueda",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }

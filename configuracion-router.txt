@@ -1,0 +1,37 @@
+
+🔧 INSTRUCCIONES PARA CONFIGURAR TU ROUTER
+============================================
+
+1. ACCEDER AL ROUTER:
+   • Abre un navegador en tu PC
+   • Ve a: http://192.168.1.1
+   • Usuario común: admin / Password común: admin (o ver etiqueta del router)
+
+2. BUSCAR CONFIGURACIÓN INALÁMBRICA:
+   • WiFi Settings / Configuración WiFi
+   • Wireless Settings / Ajustes Inalámbricos
+   • Advanced / Avanzado
+
+3. DESACTIVAR AISLAMIENTO:
+   Busca y DESACTIVA estas opciones:
+   ✗ AP Isolation (Aislamiento AP)
+   ✗ Client Isolation (Aislamiento de Cliente)
+   ✗ Station Isolation
+   ✗ Wireless Isolation
+   ✗ Device Isolation (Aislamiento de Dispositivos)
+   ✗ Inter-Device Communication (Comunicación entre Dispositivos)
+
+4. GUARDAR Y REINICIAR:
+   • Save / Guardar configuración
+   • Restart / Reiniciar router
+   • Esperar 2-3 minutos
+
+5. PROBAR CONEXIÓN:
+   • Desde tu celular: http://192.168.1.24:8090
+
+ROUTERS COMUNES:
+- TP-Link: Advanced → Wireless → Advanced
+- Netgear: WiFi Settings → Access Control
+- Linksys: WiFi Settings → WiFi Access Control
+- ASUS: Adaptive QoS → Traditional QoS → Bandwidth Monitor
+- Huawei: WiFi → WiFi Security

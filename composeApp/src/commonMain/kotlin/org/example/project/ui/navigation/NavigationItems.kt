@@ -1,41 +1,52 @@
 package org.example.project.ui.navigation
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.material3.MaterialTheme
 
-// Elementos del menú principal (equivalente a menuItems en v0)
+// Elementos del menú principal sin dependencias de Material Icons
 data class MenuItem(
     val title: String,
     val route: String,
-    val icon: ImageVector,
+    val icon: @Composable () -> Unit, // Cambio a Composable para usar emojis
     val description: String = ""
 )
+
+// Función helper para crear iconos con emojis
+@Composable
+fun EmojiIcon(emoji: String) {
+    androidx.compose.material3.Text(
+        text = emoji,
+        style = MaterialTheme.typography.titleMedium
+    )
+}
 
 object NavigationItems {
     val mainMenuItems = listOf(
         MenuItem(
             title = "Dashboard",
             route = "dashboard",
-            icon = Icons.Default.Home, // Cambiado a icono básico que siempre existe
+            icon = { EmojiIcon("🏠") },
             description = "Vista general del negocio"
         ),
         MenuItem(
             title = "Inventario",
             route = "inventario",
-            icon = Icons.Default.List, // Cambiado: Folder por List
+            icon = { EmojiIcon("📦") },
             description = "Gestión de productos"
         ),
         MenuItem(
             title = "Ventas",
             route = "ventas",
-            icon = Icons.Default.ShoppingCart,
+            icon = { EmojiIcon("🛒") },
             description = "Registro de ventas"
         ),
         MenuItem(
             title = "Calendario",
             route = "calendario",
-            icon = Icons.Default.DateRange, // Cambiado a icono básico que siempre existe
+            icon = { EmojiIcon("📅") },
             description = "Eventos y citas"
         )
     )
@@ -44,13 +55,25 @@ object NavigationItems {
         MenuItem(
             title = "Perfil",
             route = "profile",
-            icon = Icons.Default.Person,
+            icon = { EmojiIcon("👤") },
             description = "Configuración de usuario"
+        ),
+        MenuItem(
+            title = "Prueba Simple",
+            route = "test",
+            icon = { EmojiIcon("🔗") },
+            description = "Prueba básica de conectividad"
+        ),
+        MenuItem(
+            title = "Diagnóstico",
+            route = "diagnostico",
+            icon = { EmojiIcon("🔧") },
+            description = "Herramientas de diagnóstico de red"
         ),
         MenuItem(
             title = "Configuración",
             route = "settings",
-            icon = Icons.Default.Settings,
+            icon = { EmojiIcon("⚙️") },
             description = "Ajustes de la aplicación"
         )
     )

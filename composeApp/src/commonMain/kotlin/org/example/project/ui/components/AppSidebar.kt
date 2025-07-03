@@ -7,8 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.example.project.ui.navigation.MenuItem
 import org.example.project.ui.navigation.NavigationItems
+import org.example.project.ui.theme.ExtintorColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,37 +85,44 @@ private fun SidebarHeader() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Logo placeholder
+        // Logo con gradiente de extintor
         Box(
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.primary),
+                .size(56.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                        colors = listOf(
+                            ExtintorColors.ExtintorRed,
+                            ExtintorColors.ExtintorRedLight
+                        )
+                    )
+                ),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Home, // Cambiado: Business por Home
-                contentDescription = "Logo",
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(28.dp)
+            Text(
+                text = "🔥", // Emoji de fuego como alternativa
+                style = MaterialTheme.typography.headlineLarge,
+                color = ExtintorColors.PureWhite
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "GestorApp",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
+            text = "ExtinGrafic",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = ExtintorColors.PureWhite
         )
 
         Text(
             text = "Sistema de Gestión",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = MaterialTheme.typography.bodyMedium,
+            color = ExtintorColors.Gray400
         )
     }
 }
@@ -154,11 +160,8 @@ private fun SidebarMenuItem(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = item.icon,
-                contentDescription = item.title,
-                modifier = Modifier.size(20.dp)
-            )
+            // Cambio: usar el icono composable en lugar de Icon
+            item.icon()
 
             Spacer(modifier = Modifier.width(12.dp))
 
@@ -215,11 +218,9 @@ private fun SidebarFooter() {
                     .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Usuario",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(24.dp)
+                Text(
+                    text = "👤", // Emoji de usuario
+                    style = MaterialTheme.typography.headlineSmall
                 )
             }
 
@@ -238,10 +239,10 @@ private fun SidebarFooter() {
                 )
             }
 
-            Icon(
-                imageVector = if (showUserMenu) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, // Corregido: ExpandLess/ExpandMore no existen
-                contentDescription = "Menú usuario",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            Text(
+                text = if (showUserMenu) "▲" else "▼", // Flechas simples
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -259,11 +260,10 @@ private fun SidebarFooter() {
                         .clickable { /* TODO: Implementar logout */ }
                         .padding(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.ExitToApp, // Corregido: Logout no existe, usamos ExitToApp
-                        contentDescription = "Cerrar sesión",
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.error
+                    Text(
+                        text = "🚪", // Emoji de salida
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(

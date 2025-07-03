@@ -108,115 +108,73 @@ class InventarioViewModel : ViewModel() {
     /**
      * Actualizar texto de búsqueda
      */
-    fun actualizarBusqueda(texto: String) {
-        _searchText.value = texto
+    fun updateSearchText(text: String) {
+        _searchText.value = text
     }
 
     /**
      * Actualizar categoría seleccionada
      */
-    fun actualizarCategoria(categoria: String) {
-        _selectedCategory.value = categoria
+    fun updateSelectedCategory(category: String?) {
+        _selectedCategory.value = category ?: "Todas"
     }
 
     /**
-     * Crear un nuevo producto
+     * Agregar nuevo producto
      */
-    fun crearProducto(
-        nombre: String,
-        descripcion: String?,
-        precio: Double,
-        cantidad: Int,
-        categoria: String,
-        onSuccess: () -> Unit = {},
-        onError: (String) -> Unit = {}
-    ) {
+    fun agregarProducto(producto: ProductoRequest) {
         viewModelScope.launch {
-            val request = ProductoRequest(
-                nombre = nombre,
-                descripcion = descripcion,
-                precio = precio,
-                cantidad = cantidad,
-                categoria = categoria
-            )
-
-            val exitoso = repository.crearProducto(request)
-
-            if (exitoso) {
-                onSuccess()
-            } else {
-                onError(error.value ?: "Error desconocido al crear producto")
+            try {
+                println("📦 Agregando producto: ${producto.nombre}")
+                val nuevoProducto = repository.crearProducto(producto)
+                if (nuevoProducto != null) {
+                    println("✅ Producto agregado exitosamente")
+                    cargarProductos() // Recargar lista
+                } else {
+                    println("❌ Error al agregar producto")
+                }
+            } catch (e: Exception) {
+                println("❌ Error agregando producto: ${e.message}")
             }
         }
     }
 
     /**
-     * Actualizar un producto existente
+     * Actualizar producto existente
      */
-    fun actualizarProducto(
-        id: Int,
-        nombre: String,
-        descripcion: String?,
-        precio: Double,
-        cantidad: Int,
-        categoria: String,
-        onSuccess: () -> Unit = {},
-        onError: (String) -> Unit = {}
-    ) {
+    fun actualizarProducto(id: Int, producto: ProductoRequest) {
         viewModelScope.launch {
-            val request = ProductoRequest(
-                nombre = nombre,
-                descripcion = descripcion,
-                precio = precio,
-                cantidad = cantidad,
-                categoria = categoria
-            )
-
-            val exitoso = repository.actualizarProducto(id, request)
-
-            if (exitoso) {
-                onSuccess()
-            } else {
-                onError(error.value ?: "Error desconocido al actualizar producto")
+            try {
+                println("📝 Actualizando producto ID: $id")
+                val productoActualizado = repository.actualizarProducto(id, producto)
+                if (productoActualizado != null) {
+                    println("✅ Producto actualizado exitosamente")
+                    cargarProductos() // Recargar lista
+                } else {
+                    println("❌ Error al actualizar producto")
+                }
+            } catch (e: Exception) {
+                println("❌ Error actualizando producto: ${e.message}")
             }
         }
     }
 
     /**
-     * Actualizar solo el stock de un producto
+     * Eliminar producto
      */
-    fun actualizarStock(
-        id: Int,
-        cantidad: Int,
-        onSuccess: () -> Unit = {},
-        onError: (String) -> Unit = {}
-    ) {
+    fun eliminarProducto(id: Int) {
         viewModelScope.launch {
-            val exitoso = repository.actualizarStock(id, cantidad)
-
-            if (exitoso) {
-                onSuccess()
-            } else {
-                onError(error.value ?: "Error desconocido al actualizar stock")
-            }
-        }
-    }
-
-    /**
-     * Eliminar un producto
-     */
-    fun eliminarProducto(
-        id: Int,
-        onSuccess: () -> Unit = {},
-        onError: (String) -> Unit = {}
-    ) {
-        viewModelScope.launch {
-            val exitoso = repository.eliminarProducto(id)
-
-            if (exitoso) {
-                onSuccess()
-            } else {
-                onError(error.value ?: "Error desconocido al eliminar producto")
+            try {
+                println("🗑️ Eliminando producto ID: $id")
+                val eliminado = repository.eliminarProducto(id)
+                if (eliminado) {
+                    println("✅ Producto eliminado exitosamente")
+                    cargarProductos() // Recargar lista
+                } else {
+                    println("❌ Error al eliminar producto")
+                }
+            } catch (e: Exception) {
+                println("❌ Error eliminando producto: ${e.message}")
             }
         }
     }

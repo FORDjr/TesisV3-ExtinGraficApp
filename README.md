@@ -2,6 +2,16 @@
 
 Un sistema completo de gestión de inventario desarrollado con tecnologías modernas, incluyendo aplicaciones móviles multiplataforma y web.
 
+## 📸 Capturas de Pantalla
+
+### Interfaz de Usuario Móvil
+
+| Menú Sidebar | Gestión de Inventario |
+|--------------|----------------------|
+| ![Menu Sidebar](imagesScreenshotsGithub/Screenshot_20250702_211837.png) | ![Inventario](imagesScreenshotsGithub/Screenshot_20250702_211923.png) |
+
+*Capturas de pantalla mostrando la interfaz de usuario de la aplicación móvil con el menú de navegación lateral y la pantalla de gestión de inventario.*
+
 ## 🏗️ Arquitectura del Proyecto
 
 Este proyecto incluye múltiples aplicaciones:
@@ -18,8 +28,32 @@ TesisV3/
 ├── business-app/        # Aplicación web de gestión
 ├── server/             # Servidor backend API
 ├── shared/             # Código compartido
-└── iosApp/             # Configuración específica de iOS
+├── iosApp/             # Configuración específica de iOS
+└── imagesScreenshotsGithub/ # Capturas de pantalla para documentación
 ```
+
+## ✅ Estado Actual del Desarrollo
+
+### Completado
+- ✅ Configuración inicial del proyecto multiplataforma
+- ✅ Estructura básica del backend con Ktor
+- ✅ Interfaz de usuario móvil con Compose Multiplatform
+- ✅ Sistema de navegación con menú lateral
+- ✅ Pantalla de gestión de inventario
+- ✅ Diálogos para agregar/editar productos
+- ✅ Componentes UI personalizados (ExtintorCard, ExtintorButton, etc.)
+- ✅ Integración con API REST para productos
+
+### En Desarrollo
+- 🔄 Sincronización de datos entre plataformas
+- 🔄 Validaciones avanzadas de formularios
+- ⏳ Funcionalidades de reportes y analytics
+
+### Pendiente
+- ⏳ Autenticación y autorización
+- ⏳ Notificaciones push
+- ⏳ Modo offline
+- ⏳ Tests unitarios y de integración
 
 ## 🛠️ Tecnologías Utilizadas
 
@@ -33,6 +67,7 @@ TesisV3/
 - **Kotlin Multiplatform** - Código compartido multiplataforma
 - **Compose Multiplatform** - UI moderna y declarativa
 - **Ktor Client** - Cliente HTTP para comunicación con API
+- **Material Design 3** - Sistema de diseño
 
 ### Aplicación Web
 - **Next.js 15** - Framework React moderno

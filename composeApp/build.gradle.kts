@@ -40,6 +40,8 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             // Cliente HTTP para Android - versión compatible
             implementation("io.ktor:ktor-client-android:2.3.12")
+            // Material Icons para Android
+            implementation("androidx.compose.material:material-icons-extended:1.6.8")
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -65,6 +67,8 @@ kotlin {
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
+            // Material Icons para Desktop
+            implementation("androidx.compose.material:material-icons-extended:1.6.8")
         }
     }
 }

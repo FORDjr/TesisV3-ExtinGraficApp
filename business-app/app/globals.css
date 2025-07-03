@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 @layer utilities {
@@ -14,73 +14,76 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Paleta Elegante: Extintor + Negro + Blanco */
+    --background: 0 0% 98%;                    /* Blanco suave */
+    --foreground: 0 0% 8%;                     /* Negro carbón */
+    --card: 0 0% 100%;                         /* Blanco puro */
+    --card-foreground: 0 0% 8%;               /* Negro carbón */
+    --popover: 0 0% 100%;                      /* Blanco puro */
+    --popover-foreground: 0 0% 8%;            /* Negro carbón */
+    --primary: 0 85% 45%;                      /* Rojo extintor principal */
+    --primary-foreground: 0 0% 98%;           /* Blanco para texto en rojo */
+    --secondary: 0 0% 96%;                     /* Gris muy claro */
+    --secondary-foreground: 0 0% 8%;          /* Negro carbón */
+    --muted: 0 0% 94%;                         /* Gris claro para fondos */
+    --muted-foreground: 0 0% 45%;             /* Gris medio para texto secundario */
+    --accent: 0 75% 50%;                       /* Rojo extintor más claro para acentos */
+    --accent-foreground: 0 0% 98%;            /* Blanco para texto en acento */
+    --destructive: 0 85% 45%;                  /* Rojo extintor para destructivos */
+    --destructive-foreground: 0 0% 98%;       /* Blanco para texto destructivo */
+    --border: 0 0% 88%;                        /* Gris claro para bordes */
+    --input: 0 0% 96%;                         /* Gris muy claro para inputs */
+    --ring: 0 85% 45%;                         /* Rojo extintor para focus */
+    --chart-1: 0 85% 45%;                      /* Rojo extintor */
+    --chart-2: 0 0% 25%;                       /* Gris oscuro */
+    --chart-3: 0 75% 60%;                      /* Rojo más claro */
+    --chart-4: 0 0% 60%;                       /* Gris medio */
+    --chart-5: 0 65% 35%;                      /* Rojo más oscuro */
+    --radius: 0.75rem;                         /* Bordes más redondeados */
+    --sidebar-background: 0 0% 6%;             /* Negro profundo para sidebar */
+    --sidebar-foreground: 0 0% 95%;           /* Blanco suave para texto sidebar */
+    --sidebar-primary: 0 85% 45%;             /* Rojo extintor en sidebar */
+    --sidebar-primary-foreground: 0 0% 98%;   /* Blanco para texto primario sidebar */
+    --sidebar-accent: 0 0% 12%;               /* Gris muy oscuro para hover sidebar */
+    --sidebar-accent-foreground: 0 75% 50%;   /* Rojo claro para texto hover */
+    --sidebar-border: 0 0% 15%;               /* Gris oscuro para bordes sidebar */
+    --sidebar-ring: 0 85% 45%;                /* Rojo extintor para focus sidebar */
   }
+
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Modo oscuro elegante */
+    --background: 0 0% 6%;                     /* Negro profundo */
+    --foreground: 0 0% 95%;                    /* Blanco suave */
+    --card: 0 0% 8%;                           /* Negro carbón para cards */
+    --card-foreground: 0 0% 95%;              /* Blanco suave */
+    --popover: 0 0% 8%;                        /* Negro carbón */
+    --popover-foreground: 0 0% 95%;           /* Blanco suave */
+    --primary: 0 85% 50%;                      /* Rojo extintor más brillante en oscuro */
+    --primary-foreground: 0 0% 98%;           /* Blanco puro */
+    --secondary: 0 0% 12%;                     /* Gris muy oscuro */
+    --secondary-foreground: 0 0% 95%;         /* Blanco suave */
+    --muted: 0 0% 12%;                         /* Gris muy oscuro */
+    --muted-foreground: 0 0% 65%;             /* Gris claro para texto secundario */
+    --accent: 0 75% 55%;                       /* Rojo extintor brillante para acentos */
+    --accent-foreground: 0 0% 8%;             /* Negro para contraste */
+    --destructive: 0 85% 50%;                  /* Rojo extintor brillante */
+    --destructive-foreground: 0 0% 98%;       /* Blanco puro */
+    --border: 0 0% 15%;                        /* Gris oscuro para bordes */
+    --input: 0 0% 12%;                         /* Gris muy oscuro para inputs */
+    --ring: 0 85% 50%;                         /* Rojo extintor brillante para focus */
+    --chart-1: 0 85% 50%;                      /* Rojo extintor brillante */
+    --chart-2: 0 0% 70%;                       /* Gris claro */
+    --chart-3: 0 75% 65%;                      /* Rojo más claro */
+    --chart-4: 0 0% 45%;                       /* Gris medio */
+    --chart-5: 0 65% 40%;                      /* Rojo más oscuro */
+    --sidebar-background: 0 0% 4%;             /* Negro más profundo */
+    --sidebar-foreground: 0 0% 90%;           /* Gris muy claro */
+    --sidebar-primary: 0 85% 50%;             /* Rojo extintor brillante */
+    --sidebar-primary-foreground: 0 0% 98%;   /* Blanco puro */
+    --sidebar-accent: 0 0% 10%;               /* Gris oscuro para hover */
+    --sidebar-accent-foreground: 0 75% 55%;   /* Rojo claro para texto hover */
+    --sidebar-border: 0 0% 12%;               /* Gris muy oscuro para bordes */
+    --sidebar-ring: 0 85% 50%;                /* Rojo extintor brillante para focus */
   }
 }
 
@@ -90,5 +93,21 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Efectos adicionales para elegancia */
+@layer components {
+  .fire-gradient {
+    background: linear-gradient(135deg, hsl(0 85% 45%) 0%, hsl(0 75% 55%) 100%);
+  }
+
+  .elegant-shadow {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  .elegant-shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   }
 }
