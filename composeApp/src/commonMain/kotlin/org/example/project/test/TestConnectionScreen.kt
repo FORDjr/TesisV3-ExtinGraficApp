@@ -29,9 +29,9 @@ fun TestConnectionScreen() {
 
     // URLs simples para probar
     val urlsParaProbar = listOf(
-        "http://192.168.1.24:8090",  // Tu IP Wi-Fi
-        "http://10.0.11.2:8090",     // Tu IP VPN
-        "http://localhost:8090"       // Por si acaso
+        "http://192.168.1.24:8081",  // Tu IP Wi-Fi - puerto corregido
+        "http://10.0.2.2:8081",      // Para emulador Android
+        "http://localhost:8081"       // Para desarrollo local
     )
 
     Column(

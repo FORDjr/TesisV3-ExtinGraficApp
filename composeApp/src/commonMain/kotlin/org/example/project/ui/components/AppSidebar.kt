@@ -18,14 +18,19 @@ import androidx.compose.ui.unit.dp
 import org.example.project.ui.navigation.MenuItem
 import org.example.project.ui.navigation.NavigationItems
 import org.example.project.ui.theme.ExtintorColors
+import org.example.project.data.auth.AuthManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppSidebar(
     selectedRoute: String,
     onNavigate: (String) -> Unit,
+    onLogout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    // Obtener datos del usuario actual
+    val currentUser = AuthManager.getCurrentUser()
+
     Surface(
         modifier = modifier.fillMaxHeight(),
         color = MaterialTheme.colorScheme.surface,
@@ -75,7 +80,7 @@ fun AppSidebar(
             HorizontalDivider() // Corregido: Divider() está deprecado
 
             // Footer con usuario
-            SidebarFooter()
+            SidebarFooter(onLogout = onLogout)
         }
     }
 }
@@ -195,8 +200,11 @@ private fun SidebarGroupLabel(text: String) {
 }
 
 @Composable
-private fun SidebarFooter() {
+private fun SidebarFooter(onLogout: () -> Unit) {
     var showUserMenu by remember { mutableStateOf(false) }
+
+    // Obtener datos del usuario actual usando los métodos correctos del AuthManager
+    val authState by AuthManager.authState.collectAsState()
 
     Surface(
         modifier = Modifier
@@ -210,17 +218,36 @@ private fun SidebarFooter() {
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar del usuario
+            // Avatar del usuario con iniciales
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                            colors = listOf(
+                                ExtintorColors.ExtintorRed,
+                                ExtintorColors.ExtintorRedLight
+                            )
+                        )
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "👤", // Emoji de usuario
-                    style = MaterialTheme.typography.headlineSmall
+                    text = if (authState.isAuthenticated && authState.userName.isNotBlank()) {
+                        // Extraer iniciales del nombre completo
+                        val names = authState.userName.split(" ")
+                        if (names.size >= 2) {
+                            "${names[0].first().uppercase()}${names[1].first().uppercase()}"
+                        } else {
+                            authState.userName.first().uppercase()
+                        }
+                    } else {
+                        "👤"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ExtintorColors.PureWhite,
+                    fontWeight = FontWeight.Bold
                 )
             }
 
@@ -228,12 +255,20 @@ private fun SidebarFooter() {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Usuario Admin",
+                    text = if (authState.isAuthenticated && authState.userName.isNotBlank()) {
+                        authState.userName
+                    } else {
+                        "Usuario"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "admin@empresa.com",
+                    text = if (authState.isAuthenticated && authState.userEmail.isNotBlank()) {
+                        authState.userEmail
+                    } else {
+                        "usuario@empresa.com"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -257,7 +292,7 @@ private fun SidebarFooter() {
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { /* TODO: Implementar logout */ }
+                        .clickable { onLogout() }
                         .padding(8.dp)
                 ) {
                     Text(

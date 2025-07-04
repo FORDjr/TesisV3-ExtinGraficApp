@@ -12,7 +12,9 @@ import org.example.project.data.api.InventarioApiService
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    onLogout: () -> Unit = {}
+) {
     var currentRoute by remember { mutableStateOf("dashboard") }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -30,6 +32,7 @@ fun MainScreen() {
                         }
                     }
                 },
+                onLogout = onLogout,
                 modifier = Modifier.width(280.dp)
             )
         }
@@ -100,18 +103,8 @@ private fun CalendarioContent() {
 
 @Composable
 private fun ProfileContent() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "Perfil",
-            style = MaterialTheme.typography.headlineMedium
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Configuración de usuario - Próximamente")
-    }
+    // Usar la pantalla de perfil completa que creamos
+    ProfileScreen(onLogout = {})
 }
 
 @Composable
@@ -171,7 +164,7 @@ private fun NetworkDiagnosticContent() {
                             "Sin conexión"
                         }
 
-                        // Simular diagnóstico básico
+                        // Simular diagnóstico b��sico
                         diagnosticResults = mapOf(
                             "Servidor principal" to connectionWorking,
                             "Base de datos" to connectionWorking

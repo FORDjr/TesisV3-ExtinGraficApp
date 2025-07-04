@@ -42,26 +42,104 @@ class InventarioRepository {
     }
 
     /**
-     * Cargar todos los productos desde la API
+     * Cargar todos los productos desde la API con fallback a modo demo
      */
     suspend fun cargarProductos() {
         try {
             _isLoading.value = true
             _error.value = null
 
+            println("🔄 Intentando cargar productos desde servidor...")
+
+            // Intentar cargar desde API
             val productosApi = apiService.obtenerProductos()
             val productosUI = productosApi.map { it.toUI() }
 
             _productos.value = productosUI
-
-            println("✅ Productos cargados exitosamente: ${productosUI.size} productos")
+            println("✅ Productos cargados desde servidor: ${productosUI.size} productos")
 
         } catch (e: Exception) {
-            _error.value = "Error al cargar productos: ${e.message}"
-            println("❌ Error al cargar productos: ${e.message}")
+            // Si falla la API, cargar datos demo INMEDIATAMENTE
+            println("🔄 Error cargando desde servidor: ${e.message}")
+            println("🔄 Activando datos demo...")
+            cargarDatosDemo()
         } finally {
             _isLoading.value = false
         }
+    }
+
+    /**
+     * Cargar datos demo para modo offline
+     */
+    private fun cargarDatosDemo() {
+        val fechaHoy = "2025-01-03" // Fecha actual para los productos demo
+
+        val productosDemo = listOf(
+            ProductoUI(
+                id = 1,
+                nombre = "Extintor PQS 6kg",
+                categoria = "Extintores",
+                precio = 45000.0,
+                stock = 15,
+                stockMinimo = 5,
+                descripcion = "Extintor de polvo químico seco para fuegos ABC",
+                fechaIngreso = fechaHoy
+            ),
+            ProductoUI(
+                id = 2,
+                nombre = "Extintor CO2 5kg",
+                categoria = "Extintores",
+                precio = 65000.0,
+                stock = 8,
+                stockMinimo = 3,
+                descripcion = "Extintor de dióxido de carbono para fuegos BC",
+                fechaIngreso = fechaHoy
+            ),
+            ProductoUI(
+                id = 3,
+                nombre = "Detector de Humo",
+                categoria = "Detectores",
+                precio = 25000.0,
+                stock = 25,
+                stockMinimo = 10,
+                descripcion = "Detector de humo fotoeléctrico",
+                fechaIngreso = fechaHoy
+            ),
+            ProductoUI(
+                id = 4,
+                nombre = "Manguera Contraincendios",
+                categoria = "Accesorios",
+                precio = 120000.0,
+                stock = 5,
+                stockMinimo = 2,
+                descripcion = "Manguera de 25m para sistemas contraincendios",
+                fechaIngreso = fechaHoy
+            ),
+            ProductoUI(
+                id = 5,
+                nombre = "Señalética Salida Emergencia",
+                categoria = "Señalización",
+                precio = 8000.0,
+                stock = 50,
+                stockMinimo = 20,
+                descripcion = "Señal luminosa de salida de emergencia",
+                fechaIngreso = fechaHoy
+            ),
+            ProductoUI(
+                id = 6,
+                nombre = "Extintor H2O 9L",
+                categoria = "Extintores",
+                precio = 35000.0,
+                stock = 2,
+                stockMinimo = 5,
+                descripcion = "Extintor de agua para fuegos tipo A",
+                fechaIngreso = fechaHoy
+            )
+        )
+
+        _productos.value = productosDemo
+        _error.value = null
+        println("✅ Datos demo cargados: ${productosDemo.size} productos")
     }
 
     /**
@@ -202,5 +280,16 @@ class InventarioRepository {
      */
     fun close() {
         apiService.close()
+    }
+
+    /**
+     * Establecer productos demo directamente (para modo offline)
+     */
+    fun setProductosDemo(productosDemo: List<ProductoUI>) {
+        println("🔄 Estableciendo ${productosDemo.size} productos demo en repositorio...")
+        _productos.value = productosDemo
+        _error.value = null
+        _isLoading.value = false
+        println("✅ Productos demo establecidos correctamente")
     }
 }

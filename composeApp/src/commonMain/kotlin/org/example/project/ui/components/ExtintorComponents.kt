@@ -107,7 +107,7 @@ enum class ButtonVariant {
     Primary, Secondary, Outline
 }
 
-// Card elegante con estilo extintor
+// Card elegante con estilo extintor - regresando al color blanco original
 @Composable
 fun ExtintorCard(
     modifier: Modifier = Modifier,
@@ -139,7 +139,7 @@ fun ExtintorCard(
     }
 }
 
-// Input field elegante
+// Input field elegante - solo arreglando el color del texto que escribes
 @Composable
 fun ExtintorTextField(
     value: String,
@@ -188,7 +188,10 @@ fun ExtintorTextField(
                 focusedLabelColor = ExtintorColors.ExtintorRed,
                 cursorColor = ExtintorColors.ExtintorRed,
                 errorBorderColor = ExtintorColors.Error,
-                errorLabelColor = ExtintorColors.Error
+                errorLabelColor = ExtintorColors.Error,
+                // ESTO ES LO IMPORTANTE: Color del texto que escribes
+                focusedTextColor = Color.Black,  // Negro cuando escribes y está enfocado
+                unfocusedTextColor = Color.Black  // Negro cuando no está enfocado
             ),
             shape = RoundedCornerShape(12.dp)
         )

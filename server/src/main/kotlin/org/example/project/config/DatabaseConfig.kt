@@ -6,6 +6,7 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.example.project.models.Productos
+import org.example.project.models.Usuarios
 import org.example.project.*
 
 object DatabaseConfig {
@@ -42,7 +43,7 @@ object DatabaseConfig {
 
         // Crear las tablas si no existen
         transaction {
-            SchemaUtils.create(Productos)
+            SchemaUtils.create(Productos, Usuarios)
         }
     }
 }

@@ -18,6 +18,9 @@ object NetworkDiagnostics {
         val networkCapabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
 
         val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+
+        // Suprimir el warning de deprecación para WifiInfo ya que es necesario para obtener el SSID
+        @Suppress("DEPRECATION")
         val wifiInfo = wifiManager.connectionInfo
 
         return NetworkInfo(

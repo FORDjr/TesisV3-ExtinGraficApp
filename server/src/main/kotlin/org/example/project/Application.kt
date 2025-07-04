@@ -10,6 +10,7 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import org.example.project.config.DatabaseConfig
 import org.example.project.routes.inventarioRoutes
+import org.example.project.routes.authRoutes
 
 fun main() {
     embeddedServer(Netty, port = SERVER_PORT, host = "0.0.0.0", module = Application::module)
@@ -33,6 +34,9 @@ fun Application.module() {
         get("/") {
             call.respondText("Servidor de Inventario funcionando correctamente")
         }
+
+        // Rutas de autenticación
+        authRoutes()
 
         // Rutas del inventario
         inventarioRoutes()
