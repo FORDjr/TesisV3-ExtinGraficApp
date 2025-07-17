@@ -250,7 +250,10 @@ fun ExtintorTextField(
                 focusedLabelColor = ExtintorColors.ExtintorRed,
                 cursorColor = ExtintorColors.ExtintorRed,
                 errorBorderColor = ExtintorColors.Error,
-                errorLabelColor = ExtintorColors.Error
+                errorLabelColor = ExtintorColors.Error,
+                // ESTO ES LO IMPORTANTE: Color del texto que escribes
+                focusedTextColor = androidx.compose.ui.graphics.Color.Black,  // Negro cuando escribes y está enfocado
+                unfocusedTextColor = androidx.compose.ui.graphics.Color.Black  // Negro cuando no está enfocado
             ),
             shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
         )

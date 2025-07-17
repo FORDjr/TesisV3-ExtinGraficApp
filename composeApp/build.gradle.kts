@@ -69,6 +69,8 @@ kotlin {
             implementation(libs.kotlinx.coroutinesSwing)
             // Material Icons para Desktop
             implementation("androidx.compose.material:material-icons-extended:1.6.8")
+            // Cliente HTTP para Desktop - DEPENDENCIA FALTANTE
+            implementation("io.ktor:ktor-client-cio:2.3.12")
         }
     }
 }

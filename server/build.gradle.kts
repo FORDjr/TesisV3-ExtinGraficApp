@@ -7,6 +7,17 @@ plugins {
 
 group = "org.example.project"
 version = "1.0.0"
+
+// Configurar para Java 11
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+kotlin {
+    jvmToolchain(11)
+}
+
 application {
     mainClass.set("org.example.project.ApplicationKt")
     

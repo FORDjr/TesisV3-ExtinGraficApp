@@ -13,7 +13,11 @@ import org.example.project.routes.inventarioRoutes
 import org.example.project.routes.authRoutes
 
 fun main() {
-    embeddedServer(Netty, port = SERVER_PORT, host = "0.0.0.0", module = Application::module)
+    val port = getServerPort()
+    println("🚀 Iniciando servidor en puerto $port")
+    println("🌍 Entorno: ${if (System.getenv("env") == "production") "PRODUCCIÓN" else "DESARROLLO"}")
+
+    embeddedServer(Netty, port = port, host = "0.0.0.0", module = Application::module)
         .start(wait = true)
 }
 

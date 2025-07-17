@@ -27,15 +27,14 @@ class AuthApiClient {
         }
     }
 
-    // URL base del servidor usando las constantes correctas
-    // Para emulador Android: usar 10.0.2.2 (IP especial que apunta al host)
-    // Para dispositivo físico: usar la IP real de tu PC en la red local
-    private val baseUrl = "http://10.0.2.2:8081" // Corregido el puerto de 8080 a 8081
+    // URL base del servidor universitario
+    // Usando el servidor desplegado en la universidad
+    private val baseUrl = "http://146.83.198.35:1609"
 
     // Registro de usuario
     suspend fun registrarUsuario(registro: UsuarioRegistro): Result<RegistroResponse> {
         return try {
-            val response: RegistroResponse = client.post("$baseUrl/auth/register") {
+            val response: RegistroResponse = client.post("$baseUrl/api/auth/registro") {
                 contentType(ContentType.Application.Json)
                 setBody(registro)
             }.body()
@@ -48,7 +47,7 @@ class AuthApiClient {
     // Login de usuario
     suspend fun loginUsuario(login: UsuarioLogin): Result<LoginResponse> {
         return try {
-            val response: LoginResponse = client.post("$baseUrl/auth/login") {
+            val response: LoginResponse = client.post("$baseUrl/api/auth/login") {
                 contentType(ContentType.Application.Json)
                 setBody(login)
             }.body()

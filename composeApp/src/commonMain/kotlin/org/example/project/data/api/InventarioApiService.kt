@@ -16,18 +16,19 @@ import org.example.project.*
 class InventarioApiService {
 
     companion object {
-        // URLs principales simplificadas y actualizadas
-        private const val PRIMARY_URL = "http://192.168.1.24:8081"  // IP principal Wi-Fi
-        private const val LOCALHOST_URL = "http://localhost:8081"
-        private const val UNIVERSITY_URL = "http://pgsqltrans.face.ubiobio.cl:8081"
+        // URL del servidor universitario - Configuración para producción
+        private const val UNIVERSITY_URL = "http://146.83.198.35:1609" // Servidor universidad
+        private const val PRIMARY_URL = UNIVERSITY_URL      // Usar servidor universitario como primario
+        private const val LOCALHOST_URL = "http://localhost:8080"    // Para desarrollo desktop
+        private const val EMULATOR_URL = "http://10.0.2.2:8080"      // Para emulador Android local
 
         private const val API_PATH = "/api/inventario"
 
-        // Lista simplificada de URLs a probar
+        // Lista de URLs a probar - primero universidad, luego localhost, luego emulador
         private val CONNECTION_URLS = listOf(
-            PRIMARY_URL,        // IP Wi-Fi principal
-            LOCALHOST_URL,      // localhost para desarrollo
-            UNIVERSITY_URL      // servidor universidad
+            PRIMARY_URL,        // Servidor universidad primero
+            LOCALHOST_URL,      // localhost para desarrollo desktop
+            EMULATOR_URL        // Emulador Android como respaldo
         )
     }
 
@@ -148,7 +149,7 @@ class InventarioApiService {
     suspend fun obtenerProductos(): List<Producto> {
         return try {
             makeRequest { url ->
-                println("🔄 Obteniendo productos desde: $url$API_PATH")
+                println("���� Obteniendo productos desde: $url$API_PATH")
                 val productos = httpClient.get("$url$API_PATH").body<List<Producto>>()
                 println("✅ Productos obtenidos: ${productos.size}")
                 productos

@@ -22,7 +22,6 @@ fun App() {
         } else {
             LoginScreen(
                 onLoginSuccess = {
-                    // El login exitoso se maneja en el ViewModel y AuthManager
                 }
             )
         }

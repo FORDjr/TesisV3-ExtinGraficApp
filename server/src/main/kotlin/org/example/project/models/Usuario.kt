@@ -23,7 +23,7 @@ data class UsuarioRegistro(
     val email: String,
     val password: String,
     val nombre: String,
-    val apellido: String
+    val apellido: String = "" // Hacer apellido opcional con valor por defecto
 )
 
 @Serializable

@@ -1,9 +1,18 @@
+        setEditingProduct(null)
+      } catch (error) {
+        console.error("Error al editar el producto:", error)
+      }
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { useState, useEffect } from "react"
+  const handleDeleteProduct = async (id: number) => {
+    try {
+      await apiService.delete(`/productos/${id}`)
+      setProductos(productos.filter((p) => p.id !== id))
+      setDeletingProduct(null)
+    } catch (error) {
+      console.error("Error al eliminar el producto:", error)
+    }
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
@@ -14,9 +23,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Plus, Search, Package, AlertTriangle, Edit, Trash2, DollarSign } from "lucide-react"
+import { Plus, Search, Package, AlertTriangle, Edit, Trash2, DollarSign, Wifi, WifiOff } from "lucide-react"
 import { ProductForm } from "./product-form"
 import { DeleteProductDialog } from "./delete-product-dialog"
+import { apiService } from "@/lib/api-service"
 
 interface Producto {
   id: number
@@ -32,77 +42,35 @@ interface Producto {
 }
 
 export function InventarioContent() {
-  const [productos, setProductos] = useState<Producto[]>([
-    {
-      id: 1,
-      nombre: "Laptop Dell XPS 13",
-      categoria: "Electrónicos",
-      stock: 15,
-      stockMinimo: 5,
-      precio: 1299.99,
-      costo: 999.99,
-      proveedor: "Dell Inc.",
-      fechaIngreso: "2024-01-10",
-      estado: "Activo",
-    },
-    {
-      id: 2,
-      nombre: "Mouse Logitech MX Master",
-      categoria: "Accesorios",
-      stock: 3,
-      stockMinimo: 10,
-      precio: 99.99,
-      costo: 65.99,
-      proveedor: "Logitech",
-      fechaIngreso: "2024-01-08",
-      estado: "Activo",
-    },
-    {
-      id: 3,
-      nombre: "Teclado Mecánico",
-      categoria: "Accesorios",
-      stock: 0,
-      stockMinimo: 5,
-      precio: 149.99,
-      costo: 89.99,
-      proveedor: "Corsair",
-      fechaIngreso: "2024-01-05",
-      estado: "Agotado",
-    },
-    {
-      id: 4,
-      nombre: "Monitor 4K Samsung",
-      categoria: "Electrónicos",
-      stock: 8,
-      stockMinimo: 3,
-      precio: 399.99,
-      costo: 299.99,
-      proveedor: "Samsung",
-      fechaIngreso: "2024-01-12",
-      estado: "Activo",
-    },
-    {
-      id: 5,
-      nombre: "Webcam HD",
-      categoria: "Accesorios",
-      stock: 25,
-      stockMinimo: 10,
-      precio: 79.99,
-      costo: 45.99,
-      proveedor: "Logitech",
-      fechaIngreso: "2024-01-15",
-      estado: "Activo",
-    },
-  ])
-
+  const [productos, setProductos] = useState<Producto[]>([])
+  const [loading, setLoading] = useState(true)
+  const [conectado, setConectado] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Producto | null>(null)
   const [deletingProduct, setDeletingProduct] = useState<Producto | null>(null)
-
+      {/* M��tricas - Grid simple */}
   const categorias = ["Electrónicos", "Accesorios", "Oficina", "Hogar"]
+
+  useEffect(() => {
+    const fetchProductos = async () => {
+      setLoading(true)
+      try {
+        const response = await apiService.get("/productos")
+        setProductos(response.data)
+        setConectado(true)
+      } catch (error) {
+        console.error("Error al obtener los productos:", error)
+        setConectado(false)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProductos()
+  }, [])
 
   const getEstadoBadge = (producto: Producto) => {
     if (producto.stock === 0) return <Badge variant="destructive">Agotado</Badge>
@@ -124,19 +92,21 @@ export function InventarioContent() {
     return matchesSearch && matchesCategory && matchesStatus
   })
 
-  const handleAddProduct = (productData: Omit<Producto, "id">) => {
-    const newProduct = {
-      ...productData,
-      id: Math.max(...productos.map((p) => p.id)) + 1,
+  const handleAddProduct = async (productData: Omit<Producto, "id">) => {
+    try {
+      const response = await apiService.post("/productos", productData)
+      setProductos([...productos, response.data])
+      setIsAddDialogOpen(false)
+    } catch (error) {
+      console.error("Error al agregar el producto:", error)
     }
-    setProductos([...productos, newProduct])
-    setIsAddDialogOpen(false)
   }
 
-  const handleEditProduct = (productData: Omit<Producto, "id">) => {
+  const handleEditProduct = async (productData: Omit<Producto, "id">) => {
     if (editingProduct) {
-      setProductos(productos.map((p) => (p.id === editingProduct.id ? { ...productData, id: editingProduct.id } : p)))
-      setEditingProduct(null)
+      try {
+        const response = await apiService.put(`/productos/${editingProduct.id}`, productData)
+        setProductos(productos.map((p) => (p.id === editingProduct.id ? response.data : p)))
     }
   }
 
@@ -269,6 +239,26 @@ export function InventarioContent() {
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="en-stock">En Stock</SelectItem>
                   <SelectItem value="stock-bajo">Stock Bajo</SelectItem>
+
+      {/* Estado de conexión */}
+      <div className="fixed bottom-4 right-4">
+        {loading ? (
+          <div className="flex items-center gap-2 p-3 bg-gray-800 text-white rounded-lg shadow-md">
+            <WifiOff className="h-5 w-5 animate-spin" />
+            Cargando...
+          </div>
+        ) : conectado ? (
+          <div className="flex items-center gap-2 p-3 bg-green-800 text-white rounded-lg shadow-md">
+            <Wifi className="h-5 w-5" />
+            Conectado
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 p-3 bg-red-800 text-white rounded-lg shadow-md">
+            <WifiOff className="h-5 w-5" />
+            Sin Conexión
+          </div>
+        )}
+      </div>
                   <SelectItem value="agotado">Agotado</SelectItem>
                 </SelectContent>
               </Select>

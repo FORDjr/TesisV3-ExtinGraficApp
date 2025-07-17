@@ -13,8 +13,8 @@ object DatabaseConfig {
 
     fun init() {
         val config = HikariConfig().apply {
-            // Usar las constantes definidas
-            jdbcUrl = "jdbc:postgresql://$DATABASE_HOST:$DATABASE_PORT/$DATABASE_NAME"
+            // Usar las funciones definidas en Constants.kt
+            jdbcUrl = "jdbc:postgresql://${getDatabaseHost()}:$DATABASE_PORT/${getDatabaseName()}"
             username = "dpozas"
             password = "diego2025"
             driverClassName = "org.postgresql.Driver"

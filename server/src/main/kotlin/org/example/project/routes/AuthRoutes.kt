@@ -9,10 +9,10 @@ import org.example.project.models.*
 import org.example.project.services.AuthService
 
 fun Route.authRoutes() {
-    route("/auth") {
+    route("/api/auth") {
 
         // Registro de usuario
-        post("/register") {
+        post("/registro") {
             try {
                 val registro = call.receive<UsuarioRegistro>()
                 val response = AuthService.registrarUsuario(registro)
@@ -49,44 +49,15 @@ fun Route.authRoutes() {
                     HttpStatusCode.BadRequest,
                     LoginResponse(
                         success = false,
-                        message = "Error en el formato de datos: ${e.message}"
+                        message = "Error en el login: ${e.message}"
                     )
                 )
             }
         }
 
-        // Obtener perfil de usuario (requiere autenticación)
-        get("/profile/{id}") {
-            try {
-                val userId = call.parameters["id"]?.toIntOrNull()
-                if (userId == null) {
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        mapOf("error" to "ID de usuario inválido")
-                    )
-                    return@get
-                }
-
-                val usuario = AuthService.obtenerUsuario(userId)
-                if (usuario != null) {
-                    call.respond(HttpStatusCode.OK, usuario)
-                } else {
-                    call.respond(
-                        HttpStatusCode.NotFound,
-                        mapOf("error" to "Usuario no encontrado")
-                    )
-                }
-            } catch (e: Exception) {
-                call.respond(
-                    HttpStatusCode.InternalServerError,
-                    mapOf("error" to "Error interno del servidor: ${e.message}")
-                )
-            }
-        }
-
-        // Ruta de prueba para verificar que las rutas están funcionando
-        get("/test") {
-            call.respond(HttpStatusCode.OK, mapOf("message" to "API de autenticación funcionando"))
+        // Verificar token (opcional)
+        get("/verify") {
+            call.respond(HttpStatusCode.OK, mapOf("message" to "Token válido"))
         }
     }
 }

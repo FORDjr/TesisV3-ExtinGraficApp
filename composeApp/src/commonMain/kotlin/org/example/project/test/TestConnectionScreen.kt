@@ -27,8 +27,9 @@ fun TestConnectionScreen() {
         }
     }
 
-    // URLs simples para probar
+    // URLs para probar - actualizado para usar servidor universitario
     val urlsParaProbar = listOf(
+        "http://146.83.198.35:1609", // Servidor universitario (primario)
         "http://192.168.1.24:8081",  // Tu IP Wi-Fi - puerto corregido
         "http://10.0.2.2:8081",      // Para emulador Android
         "http://localhost:8081"       // Para desarrollo local
