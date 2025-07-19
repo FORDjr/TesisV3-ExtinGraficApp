@@ -1,4 +1,4 @@
-        setEditingProduct(null)
+setEditingProduct(null)
       } catch (error) {
         console.error("Error al editar el producto:", error)
       }
@@ -27,6 +27,7 @@ import { Plus, Search, Package, AlertTriangle, Edit, Trash2, DollarSign, Wifi, W
 import { ProductForm } from "./product-form"
 import { DeleteProductDialog } from "./delete-product-dialog"
 import { apiService } from "@/lib/api-service"
+import { API_CONFIG } from "@/config/api"
 
 interface Producto {
   id: number
@@ -51,19 +52,22 @@ export function InventarioContent() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Producto | null>(null)
   const [deletingProduct, setDeletingProduct] = useState<Producto | null>(null)
-      {/* M��tricas - Grid simple */}
+  const [errorMessage, setErrorMessage] = useState("")
+
+  {/* M��tricas - Grid simple */}
   const categorias = ["Electrónicos", "Accesorios", "Oficina", "Hogar"]
 
   useEffect(() => {
     const fetchProductos = async () => {
       setLoading(true)
       try {
-        const response = await apiService.get("/productos")
+        const response = await apiService.get(API_CONFIG.ENDPOINTS.INVENTARIO)
         setProductos(response.data)
         setConectado(true)
       } catch (error) {
         console.error("Error al obtener los productos:", error)
         setConectado(false)
+        setErrorMessage("No se pudieron cargar los productos. Por favor, intente nuevamente más tarde.")
       } finally {
         setLoading(false)
       }

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
+import { Plus } from "lucide-react"
 
 interface Producto {
   id: number
@@ -43,9 +44,12 @@ export function ProductForm({ initialData, onSubmit }: ProductFormProps) {
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false)
+  const [newCategory, setNewCategory] = useState("")
+  const [customCategories, setCustomCategories] = useState<string[]>([])
 
-  const categorias = ["Electrónicos", "Accesorios", "Oficina", "Hogar", "Ropa", "Deportes"]
-  const proveedores = ["Dell Inc.", "Logitech", "Corsair", "Samsung", "Apple", "HP", "Lenovo"]
+  const defaultCategorias = ["Extintores", "Test", "Electrónicos", "Otros"]
+  const allCategories = [...defaultCategorias, ...customCategories]
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -104,6 +108,28 @@ export function ProductForm({ initialData, onSubmit }: ProductFormProps) {
     }
   }
 
+  const handleCategoryChange = (value: string) => {
+    if (value === "__nueva__") {
+      setShowNewCategoryInput(true)
+      setNewCategory("")
+      handleInputChange("categoria", "")
+    } else {
+      handleInputChange("categoria", value)
+      setShowNewCategoryInput(false)
+    }
+  }
+
+  const handleAddCategory = () => {
+    if (newCategory.trim() && !allCategories.includes(newCategory.trim())) {
+      setCustomCategories((prev) => [...prev, newCategory.trim()])
+      handleInputChange("categoria", newCategory.trim())
+      setNewCategory("")
+      setShowNewCategoryInput(false)
+    }
+  }
+
+  const proveedores = ["Dell Inc.", "Logitech", "Corsair", "Samsung", "Apple", "HP", "Lenovo"]
+
   const margenGanancia =
     formData.precio > 0 && formData.costo > 0
       ? (((formData.precio - formData.costo) / formData.costo) * 100).toFixed(1)
@@ -131,19 +157,58 @@ export function ProductForm({ initialData, onSubmit }: ProductFormProps) {
 
               <div>
                 <Label htmlFor="categoria">Categoría *</Label>
-                <Select value={formData.categoria} onValueChange={(value) => handleInputChange("categoria", value)}>
+                <Select value={formData.categoria} onValueChange={handleCategoryChange}>
                   <SelectTrigger className={errors.categoria ? "border-red-500" : ""}>
                     <SelectValue placeholder="Selecciona una categoría" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categorias.map((categoria) => (
+                    {allCategories.map((categoria) => (
                       <SelectItem key={categoria} value={categoria}>
                         {categoria}
                       </SelectItem>
                     ))}
+                    <SelectItem value="__nueva__">
+                      <div className="flex items-center">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Crear nueva categoría
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 {errors.categoria && <p className="text-sm text-red-500 mt-1">{errors.categoria}</p>}
+
+                {showNewCategoryInput && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Input
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      placeholder="Escribe el nombre de la nueva categoría"
+                      className="flex-1"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleAddCategory()
+                        }
+                      }}
+                    />
+                    <Button type="button" onClick={handleAddCategory} size="sm">
+                      <Plus className="w-4 h-4 mr-1" />
+                      Agregar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setShowNewCategoryInput(false)
+                        setNewCategory("")
+                        handleInputChange("categoria", "")
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div>

@@ -32,22 +32,28 @@ object NavigationItems {
             description = "Vista general del negocio"
         ),
         MenuItem(
-            title = "Inventario",
-            route = "inventario",
-            icon = { EmojiIcon("📦") },
-            description = "Gestión de productos"
-        ),
-        MenuItem(
             title = "Ventas",
             route = "ventas",
             icon = { EmojiIcon("🛒") },
             description = "Registro de ventas"
         ),
         MenuItem(
+            title = "Inventario",
+            route = "inventario",
+            icon = { EmojiIcon("📦") },
+            description = "Gestión de productos"
+        ),
+        MenuItem(
             title = "Calendario",
             route = "calendario",
             icon = { EmojiIcon("📅") },
             description = "Eventos y citas"
+        ),
+        MenuItem(
+            title = "Diagnóstico",
+            route = "diagnostico",
+            icon = { EmojiIcon("🔧") },
+            description = "Herramientas de diagnóstico de red"
         )
     )
 
@@ -57,24 +63,6 @@ object NavigationItems {
             route = "profile",
             icon = { EmojiIcon("👤") },
             description = "Configuración de usuario"
-        ),
-        MenuItem(
-            title = "Prueba Simple",
-            route = "test",
-            icon = { EmojiIcon("🔗") },
-            description = "Prueba básica de conectividad"
-        ),
-        MenuItem(
-            title = "Diagnóstico",
-            route = "diagnostico",
-            icon = { EmojiIcon("🔧") },
-            description = "Herramientas de diagnóstico de red"
-        ),
-        MenuItem(
-            title = "Configuración",
-            route = "settings",
-            icon = { EmojiIcon("⚙️") },
-            description = "Ajustes de la aplicación"
         )
     )
 }

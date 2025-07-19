@@ -7,6 +7,9 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.example.project.models.Productos
 import org.example.project.models.Usuarios
+import org.example.project.models.Ventas
+import org.example.project.models.VentaProductos
+import org.example.project.services.DatabaseSeeder
 import org.example.project.*
 
 object DatabaseConfig {
@@ -43,7 +46,11 @@ object DatabaseConfig {
 
         // Crear las tablas si no existen
         transaction {
-            SchemaUtils.create(Productos, Usuarios)
+            SchemaUtils.create(Productos, Usuarios, Ventas, VentaProductos)
+
+            // Poblar la base de datos con datos iniciales
+            println("🗄️ Inicializando datos de ejemplo...")
+            DatabaseSeeder.seedDatabase()
         }
     }
 }

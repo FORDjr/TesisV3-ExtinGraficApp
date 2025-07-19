@@ -6,9 +6,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.ktor.client.HttpClient
 import kotlinx.coroutines.launch
-import org.example.project.ui.components.AppSidebar
 import org.example.project.data.api.InventarioApiService
+import org.example.project.data.api.VentasApiService
+import org.example.project.ui.components.AppSidebar
+import org.example.project.ui.screens.VentasScreen
+import org.example.project.ui.viewmodel.VentasViewModel
+import org.example.project.data.repository.VentasRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +46,11 @@ fun MainScreen(
             when (currentRoute) {
                 "dashboard" -> DashboardContent()
                 "inventario" -> InventarioContent()
-                "ventas" -> VentasContent()
+                "ventas" -> VentasScreen(
+                    viewModel = VentasViewModel(ventasRepository = VentasRepository(apiService = VentasApiService(httpClient = HttpClient()))),
+                    onNavigateToNuevaVenta = { /* lógica para nueva venta */ },
+                    onNavigateToDetalleVenta = { /* lógica para detalle de venta */ }
+                )
                 "calendario" -> CalendarioContent()
                 "profile" -> ProfileContent()
                 "settings" -> SettingsContent()
@@ -170,7 +179,7 @@ private fun NetworkDiagnosticContent() {
                             "Base de datos" to connectionWorking
                         )
                     } catch (e: Exception) {
-                        serverStatus = "❌ Error: ${e.message}"
+                        serverStatus = "��� Error: ${e.message}"
                     } finally {
                         isLoading = false
                     }
