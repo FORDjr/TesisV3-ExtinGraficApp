@@ -32,7 +32,6 @@ class VentasRepository(private val apiService: VentasApiService) {
         emit(apiService.obtenerProductosParaVenta())
     }
 
-    // Datos de ejemplo para cuando falle la API
 
 
     fun obtenerMetricasEjemplo(): MetricasVentas {

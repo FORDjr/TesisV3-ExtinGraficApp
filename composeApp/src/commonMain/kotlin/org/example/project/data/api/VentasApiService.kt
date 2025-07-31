@@ -7,44 +7,48 @@ import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.example.project.data.models.*
 import org.example.project.data.model.Producto
 
-class VentasApiService(private val httpClient: HttpClient) {
-
+class VentasApiService {
     companion object {
-        // CONFIGURACIÓN ACTUALIZADA PARA USAR SERVIDOR LOCAL FUNCIONANDO
-        private const val LOCAL_WIFI_URL = "http://192.168.1.24:8090"        // Servidor local funcionando
-        private const val LOCAL_RADMIN_URL = "http://26.36.148.66:8090"      // Radmin VPN backup
-        private const val LOCALHOST_URL = "http://localhost:8090"            // localhost para desarrollo
-        private const val EMULATOR_URL = "http://10.0.2.2:8090"             // Emulador Android
-        private const val UNIVERSITY_URL = "http://146.83.198.35:1609"       // Servidor universidad (backup)
-
-        private const val API_PATH = "/api"
-
-        // Lista de URLs a probar - SERVIDOR LOCAL PRIMERO ya que está funcionando
+        // Usar la misma configuración que InventarioApiService
+        private const val UNIVERSITY_URL = "http://146.83.198.35:1609"
+        private const val PRIMARY_URL = UNIVERSITY_URL
+        private const val LOCALHOST_URL = "http://localhost:8080"
+        private const val EMULATOR_URL = "http://10.0.2.2:8080"
+        private const val API_PATH_VENTAS = "/api/ventas"
+        private const val API_PATH_INVENTARIO = "/api/inventario"
         private val CONNECTION_URLS = listOf(
-            LOCAL_WIFI_URL,     // Tu servidor local WiFi (funcionando)
-            LOCAL_RADMIN_URL,   // Tu servidor Radmin VPN
-            LOCALHOST_URL,      // localhost para desarrollo desktop
-            EMULATOR_URL,       // Emulador Android
-            UNIVERSITY_URL      // Servidor universidad como último recurso
+            PRIMARY_URL,
+            LOCALHOST_URL,
+            EMULATOR_URL
         )
-
-        // Instancia Json reutilizable
-        private val json = Json {
-            ignoreUnknownKeys = true
+        val json = Json {
+            prettyPrint = true
             isLenient = true
+            ignoreUnknownKeys = true
+        }
+    }
+
+    private val httpClient = HttpClient {
+        install(ContentNegotiation) {
+            json(VentasApiService.json)
+        }
+        install(Logging) {
+            logger = Logger.DEFAULT
+            level = LogLevel.INFO
         }
     }
 
     // Función auxiliar para probar conexión con múltiples URLs
-    private suspend fun tryRequest(path: String): Result<String> {
-        val baseUrl = UNIVERSITY_URL // Usar directamente la URL de la universidad
+    private suspend fun tryRequestVentas(path: String): Result<String> {
+        val url = companionObjectWorkingUrl()
         return try {
-            val response = httpClient.get("$baseUrl$API_PATH$path")
-            if (response.status == HttpStatusCode.OK) {
+            val response = httpClient.get("$url$API_PATH_VENTAS$path")
+            if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
                 Result.failure(Exception("Error HTTP: ${response.status}"))
@@ -54,12 +58,31 @@ class VentasApiService(private val httpClient: HttpClient) {
         }
     }
 
+    private suspend fun tryRequestInventario(path: String): Result<String> {
+        val url = companionObjectWorkingUrl()
+        return try {
+            val response = httpClient.get("$url$API_PATH_INVENTARIO$path")
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(Exception("Error HTTP: ${response.status}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Error de conexión: ${e.message}"))
+        }
+    }
+
+    private fun companionObjectWorkingUrl(): String {
+        // Usar la URL principal (universidad) como en InventarioApiService
+        return PRIMARY_URL
+    }
+
     suspend fun obtenerVentas(): Result<List<Venta>> {
-        val result = tryRequest("/ventas")
+        val result = tryRequestVentas("") // Llama a /api/ventas
         return result.fold(
             onSuccess = { response ->
                 try {
-                    Result.success(json.decodeFromString(response))
+                    Result.success(VentasApiService.json.decodeFromString<List<Venta>>(response))
                 } catch (e: Exception) {
                     Result.failure(Exception("Error al decodificar respuesta: ${e.message}"))
                 }
@@ -71,66 +94,64 @@ class VentasApiService(private val httpClient: HttpClient) {
     }
 
     suspend fun obtenerMetricas(): Result<MetricasVentas> {
-        return try {
-            val response = tryRequest("/ventas/metricas")
-            response.fold(
-                onSuccess = { jsonString ->
-                    val metricas = json.decodeFromString<MetricasVentas>(jsonString)
-                    Result.success(metricas)
-                },
-                onFailure = { error ->
-                    Result.failure(error)
+        val result = tryRequestVentas("/metricas") // Llama a /api/ventas/metricas
+        return result.fold(
+            onSuccess = { response ->
+                try {
+                    Result.success(VentasApiService.json.decodeFromString<MetricasVentas>(response))
+                } catch (e: Exception) {
+                    Result.failure(Exception("Error al decodificar métricas: ${e.message}"))
                 }
-            )
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+            },
+            onFailure = { error ->
+                Result.failure(error)
+            }
+        )
     }
 
     suspend fun crearVenta(nuevaVenta: NuevaVentaRequest): Result<Venta> {
         return try {
             for (baseUrl in CONNECTION_URLS) {
                 try {
-                    val response = httpClient.post("$baseUrl$API_PATH/ventas") {
+                    val response = httpClient.post("$baseUrl$API_PATH_VENTAS") {
                         contentType(ContentType.Application.Json)
                         setBody(nuevaVenta)
                     }
-                    if (response.status == HttpStatusCode.Created) {
+                    if (response.status == HttpStatusCode.Created || response.status == HttpStatusCode.OK) {
                         val venta = response.body<Venta>()
                         return Result.success(venta)
                     }
-                } catch (_: Exception) {
-                    continue
+                } catch (e: Exception) {
+                    // Intenta con la siguiente URL
                 }
             }
-            Result.failure(Exception("No se pudo crear la venta"))
+            Result.failure(Exception("No se pudo crear la venta en ningún servidor."))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception("Error al crear venta: ${e.message}"))
         }
     }
 
     suspend fun obtenerVentaPorId(id: String): Result<Venta> {
-        return try {
-            val response = tryRequest("/ventas/$id")
-            response.fold(
-                onSuccess = { jsonString ->
-                    val venta = json.decodeFromString<Venta>(jsonString)
-                    Result.success(venta)
-                },
-                onFailure = { error ->
-                    Result.failure(error)
+        val result = tryRequestVentas("/$id") // Llama a /api/ventas/{id}
+        return result.fold(
+            onSuccess = { response ->
+                try {
+                    Result.success(VentasApiService.json.decodeFromString<Venta>(response))
+                } catch (e: Exception) {
+                    Result.failure(Exception("Error al decodificar venta: ${e.message}"))
                 }
-            )
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+            },
+            onFailure = { error ->
+                Result.failure(error)
+            }
+        )
     }
 
     suspend fun actualizarEstadoVenta(id: String, nuevoEstado: EstadoVenta): Result<Venta> {
         return try {
             for (baseUrl in CONNECTION_URLS) {
                 try {
-                    val response = httpClient.patch("$baseUrl$API_PATH/ventas/$id/estado") {
+                    val response = httpClient.patch("$baseUrl$API_PATH_VENTAS/ventas/$id/estado") {
                         contentType(ContentType.Application.Json)
                         setBody(mapOf("estado" to nuevoEstado))
                     }
@@ -149,23 +170,19 @@ class VentasApiService(private val httpClient: HttpClient) {
     }
 
     suspend fun obtenerProductosParaVenta(): Result<List<Producto>> {
-        return try {
-            println("🔍 VENTAS: Cargando productos desde servidor...")
-            val response = tryRequest("/inventario/productos") // Usar el endpoint de inventario
-            response.fold(
-                onSuccess = { jsonString ->
-                    val productos = json.decodeFromString<List<Producto>>(jsonString)
-                    println("✅ VENTAS: ${productos.size} productos cargados exitosamente")
-                    Result.success(productos)
-                },
-                onFailure = { error ->
-                    println("❌ VENTAS: Error al obtener productos: ${error.message}")
-                    Result.failure(error)
+        for (baseUrl in CONNECTION_URLS) {
+            try {
+                val response = httpClient.get("$baseUrl$API_PATH_INVENTARIO")
+                if (response.status == HttpStatusCode.OK) {
+                    val productos = response.body<List<Producto>>()
+                    println("✅ VENTAS: ${productos.size} productos cargados exitosamente desde $baseUrl$API_PATH_INVENTARIO")
+                    return Result.success(productos)
                 }
-            )
-        } catch (e: Exception) {
-            println("❌ VENTAS: Excepción al cargar productos: ${e.message}")
-            Result.failure(e)
+            } catch (e: Exception) {
+                println("❌ VENTAS: Error al obtener productos desde $baseUrl$API_PATH_INVENTARIO: ${e.message}")
+                continue
+            }
         }
+        return Result.failure(Exception("No se pudo obtener productos desde ningún servidor."))
     }
 }

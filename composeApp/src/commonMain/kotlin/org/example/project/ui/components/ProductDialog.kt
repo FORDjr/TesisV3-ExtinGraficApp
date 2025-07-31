@@ -14,12 +14,14 @@ import org.example.project.data.model.ProductoRequest
 import org.example.project.data.model.ProductoUI
 import org.example.project.ui.theme.ExtintorColors
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductDialog(
     title: String,
     initialProduct: ProductoUI? = null,
     onDismiss: () -> Unit,
-    onConfirm: (ProductoRequest) -> Unit
+    onConfirm: (ProductoRequest) -> Unit,
+    categorias: List<String>, // Recibo las categorías como parámetro
 ) {
     var nombre by remember { mutableStateOf(initialProduct?.nombre ?: "") }
     var descripcion by remember { mutableStateOf(initialProduct?.descripcion ?: "") }
@@ -31,6 +33,11 @@ fun ProductDialog(
     var precioError by remember { mutableStateOf("") }
     var cantidadError by remember { mutableStateOf("") }
     var categoriaError by remember { mutableStateOf("") }
+
+    var categoriaExpanded by remember { mutableStateOf(false) }
+
+    // Reemplazo la lista local por la recibida por parámetro
+    var categorias by remember { mutableStateOf(categorias) }
 
     fun validarCampos(): Boolean {
         nombreError = if (nombre.isBlank()) "El nombre es requerido" else ""
@@ -55,11 +62,11 @@ fun ProductDialog(
     }
 
     Dialog(onDismissRequest = onDismiss) {
-        ExtintorCard(
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            elevated = true
+            elevation = CardDefaults.cardElevation()
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth()
@@ -73,8 +80,7 @@ fun ProductDialog(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = ExtintorColors.CharcoalBlack
+                        fontWeight = FontWeight.Bold
                     )
 
                     TextButton(onClick = onDismiss) {
@@ -85,33 +91,84 @@ fun ProductDialog(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // Campos del formulario
-                ExtintorTextField(
+                TextField(
                     value = nombre,
                     onValueChange = {
                         nombre = it
                         nombreError = ""
                     },
-                    label = "Nombre del producto",
-                    placeholder = "Ej: Extintor ABC 5kg",
-                    leadingText = "🛒",
+                    label = { Text("Nombre del producto") },
+                    placeholder = { Text("Ej: Extintor ABC 5kg") },
                     isError = nombreError.isNotEmpty(),
-                    errorMessage = nombreError
+                    modifier = Modifier.fillMaxWidth()
                 )
+
+                if (nombreError.isNotEmpty()) {
+                    Text(
+                        text = nombreError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                ExtintorTextField(
+                // Selector de categorías
+                ExposedDropdownMenuBox(
+                    expanded = categoriaExpanded,
+                    onExpandedChange = { categoriaExpanded = !categoriaExpanded }
+                ) {
+                    TextField(
+                        readOnly = true,
+                        value = categoria,
+                        onValueChange = { },
+                        label = { Text("Categoría") },
+                        placeholder = { Text("Seleccione una categoría") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoriaExpanded)
+                        },
+                        isError = categoriaError.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = categoriaExpanded,
+                        onDismissRequest = { categoriaExpanded = false }
+                    ) {
+                        categorias.forEach { categoriaItem ->
+                            DropdownMenuItem(
+                                text = { Text(text = categoriaItem) },
+                                onClick = {
+                                    categoria = categoriaItem
+                                    categoriaError = ""
+                                    categoriaExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Campo para nueva categoría
+                Spacer(modifier = Modifier.height(8.dp))
+                TextField(
                     value = categoria,
                     onValueChange = {
                         categoria = it
                         categoriaError = ""
                     },
-                    label = "Categoría",
-                    placeholder = "Ej: Extintores, Señalización",
-                    leadingText = "🏷️",
+                    label = { Text("Nueva categoría (si no existe)") },
+                    placeholder = { Text("Ej: Nueva categoría") },
                     isError = categoriaError.isNotEmpty(),
-                    errorMessage = categoriaError
+                    modifier = Modifier.fillMaxWidth()
                 )
+
+                if (categoriaError.isNotEmpty()) {
+                    Text(
+                        text = categoriaError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -119,46 +176,57 @@ fun ProductDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    ExtintorTextField(
+                    TextField(
                         value = precio,
                         onValueChange = {
                             precio = it
                             precioError = ""
                         },
-                        label = "Precio",
-                        placeholder = "0.00",
-                        leadingText = "$",
+                        label = { Text("Precio") },
+                        placeholder = { Text("0.00") },
                         isError = precioError.isNotEmpty(),
-                        errorMessage = precioError,
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                     )
 
-                    ExtintorTextField(
+                    TextField(
                         value = cantidad,
                         onValueChange = {
-                            cantidad = it
+                            cantidad = it.filter { c -> c.isDigit() }
                             cantidadError = ""
                         },
-                        label = "Cantidad",
-                        placeholder = "0",
-                        leadingText = "#",
+                        label = { Text("Cantidad") },
+                        placeholder = { Text("0") },
                         isError = cantidadError.isNotEmpty(),
-                        errorMessage = cantidadError,
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
                 }
 
+                if (precioError.isNotEmpty()) {
+                    Text(
+                        text = precioError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                if (cantidadError.isNotEmpty()) {
+                    Text(
+                        text = cantidadError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
-                ExtintorTextField(
+                TextField(
                     value = descripcion,
                     onValueChange = { descripcion = it },
-                    label = "Descripción (opcional)",
-                    placeholder = "Descripción del producto...",
-                    leadingText = "📝",
-                    singleLine = false
+                    label = { Text("Descripción") },
+                    placeholder = { Text("Opcional") },
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -168,30 +236,34 @@ fun ProductDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    ExtintorButton(
-                        text = "Cancelar",
+                    Button(
                         onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        variant = ButtonVariant.Outline
-                    )
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Cancelar")
+                    }
 
-                    ExtintorButton(
-                        text = if (initialProduct != null) "Actualizar" else "Agregar",
+                    Button(
                         onClick = {
                             if (validarCampos()) {
-                                val producto = ProductoRequest(
-                                    nombre = nombre.trim(),
-                                    descripcion = descripcion.trim().takeIf { it.isNotEmpty() },
-                                    precio = precio.toDouble(),
-                                    cantidad = cantidad.toInt(),
-                                    categoria = categoria.trim()
+                                // Si la categoría no existe, agregarla
+                                if (categoria.isNotBlank() && !categorias.contains(categoria)) {
+                                    categorias = categorias + categoria
+                                }
+                                val productoRequest = ProductoRequest(
+                                    nombre = nombre,
+                                    descripcion = if (descripcion.isBlank()) null else descripcion,
+                                    precio = precio.toDoubleOrNull() ?: 0.0,
+                                    cantidad = cantidad.toIntOrNull() ?: 0,
+                                    categoria = categoria
                                 )
-                                onConfirm(producto)
+                                onConfirm(productoRequest)
                             }
                         },
-                        modifier = Modifier.weight(1f),
-                        variant = ButtonVariant.Primary
-                    )
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if (initialProduct != null) "Actualizar" else "Agregar")
+                    }
                 }
             }
         }

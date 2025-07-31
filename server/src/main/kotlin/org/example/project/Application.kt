@@ -1,40 +1,46 @@
 package org.example.project
 
-import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
-import io.ktor.server.engine.*
-import io.ktor.server.netty.*
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
 import org.example.project.config.DatabaseConfig
-import org.example.project.routes.inventarioRoutes
 import org.example.project.routes.authRoutes
+import org.example.project.routes.inventarioRoutes
 import org.example.project.routes.ventasRoutes
 
 fun main() {
-    val port = getServerPort()
-    println("🚀 Iniciando servidor en puerto $port")
+    println("🚀 Iniciando servidor en puerto $SERVER_PORT")
     println("🌍 Entorno: ${if (System.getenv("env") == "production") "PRODUCCIÓN" else "DESARROLLO"}")
 
-    embeddedServer(Netty, port = port, host = "0.0.0.0", module = Application::module)
-        .start(wait = true)
+    embeddedServer(
+        Netty,
+        host = "0.0.0.0",
+        port = SERVER_PORT,
+        module = Application::module
+    ).start(wait = true)
 }
 
 fun Application.module() {
-    // Inicializar la base de datos
+    /* ---------- Base de datos ---------- */
     DatabaseConfig.init()
 
-    // Configurar serialización JSON con configuraciones más flexibles
+    /* ---------- Serialización JSON ---------- */
     install(ContentNegotiation) {
-        json(Json {
-            prettyPrint = true
-            isLenient = true
-            ignoreUnknownKeys = true
-        })
+        json(
+            Json {
+                prettyPrint       = true
+                isLenient         = true
+                ignoreUnknownKeys = true
+            }
+        )
     }
 
+    /* ---------- Rutas ---------- */
     routing {
         get("/") {
             call.respondText("Servidor de Inventario y Ventas funcionando correctamente")
@@ -43,15 +49,15 @@ fun Application.module() {
         // Rutas de autenticación
         authRoutes()
 
-        // Rutas del inventario
+        // Rutas de inventario
         inventarioRoutes()
 
         // Rutas de ventas
         ventasRoutes()
 
-        // Ruta de estado de la base de datos
+        // Endpoint de salud
         get("/health") {
-            call.respondText("Base de datos conectada - Inventario y Ventas API v1.0")
+            call.respondText("Base de datos conectada • Inventario y Ventas API v1.0")
         }
     }
 }

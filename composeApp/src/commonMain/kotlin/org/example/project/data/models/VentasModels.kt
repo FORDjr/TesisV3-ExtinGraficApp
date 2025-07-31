@@ -13,7 +13,9 @@ data class Venta(
     val estado: EstadoVenta,
     val metodoPago: MetodoPago,
     val observaciones: String? = null,
-    val productos: List<ProductoVenta> = emptyList()
+    val productos: List<ProductoVenta> = emptyList(),
+    val subtotal: Double = productos.sumOf { it.subtotal }, // agregado
+    val descuento: Double = 0.0 // agregado
 )
 
 @Serializable
@@ -83,8 +85,15 @@ data class NuevaVentaRequest(
 @Serializable
 data class ProductoVentaRequest(
     val id: Int,
-    val cantidad: Int,
-    val precio: Double
+    val cantidad: Int
+)
+
+@Serializable
+data class VentaRequest(
+    val cliente: String,
+    val productos: List<ProductoVentaRequest>,
+    val metodoPago: MetodoPago,
+    val observaciones: String? = null
 )
 
 @Serializable
@@ -127,7 +136,8 @@ data class NuevaVentaUiState(
     val productosDisponibles: List<ProductoUI> = emptyList(),
     val searchQuery: String = "",
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val ventaCreada: Venta? = null // <-- Agregado para guardar la venta creada
 ) {
     val total: Double
         get() = productos.sumOf { it.subtotal }

@@ -149,7 +149,7 @@ class InventarioApiService {
     suspend fun obtenerProductos(): List<Producto> {
         return try {
             makeRequest { url ->
-                println("���� Obteniendo productos desde: $url$API_PATH")
+                println("������ Obteniendo productos desde: $url$API_PATH")
                 val productos = httpClient.get("$url$API_PATH").body<List<Producto>>()
                 println("✅ Productos obtenidos: ${productos.size}")
                 productos
@@ -237,6 +237,22 @@ class InventarioApiService {
         } catch (e: Exception) {
             println("Error al eliminar producto $id: ${e.message}")
             false
+        }
+    }
+
+    /**
+     * Obtener categorías desde la API
+     */
+    suspend fun obtenerCategorias(): List<String> {
+        return try {
+            makeRequest { url ->
+                val categorias = httpClient.get("$url$API_PATH/categorias").body<List<String>>()
+                println("✅ Categorías obtenidas: ${categorias.size}")
+                categorias
+            }
+        } catch (e: Exception) {
+            println("❌ Error al obtener categorías: ${e.message}")
+            emptyList()
         }
     }
 

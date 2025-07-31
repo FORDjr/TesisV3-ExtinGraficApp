@@ -80,8 +80,7 @@ data class VentaRequest(
 @Serializable
 data class ProductoVentaRequest(
     val id: Int,
-    val cantidad: Int,
-    val precio: Double
+    val cantidad: Int
 )
 
 @Serializable

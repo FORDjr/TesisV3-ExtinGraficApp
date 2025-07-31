@@ -4,7 +4,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.example.project.data.api.InventarioApiService
-import org.example.project.data.model.Producto
 import org.example.project.data.model.ProductoRequest
 import org.example.project.data.model.toUI
 import org.example.project.data.model.ProductoUI
@@ -24,6 +23,10 @@ class InventarioRepository {
     // Estado de error
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    // Estado reactivo de la lista de categorías
+    private val _categorias = MutableStateFlow<List<String>>(emptyList())
+    val categorias: StateFlow<List<String>> = _categorias.asStateFlow()
 
     /**
      * Verificar conexión con el servidor
@@ -165,6 +168,10 @@ class InventarioRepository {
         } catch (e: Exception) {
             _error.value = "Error al crear producto: ${e.message}"
             println("❌ Error al crear producto: ${e.message}")
+            // Propagar errores al UI
+            if (_error.value != null) {
+                println("❌ Error detectado: ${_error.value}")
+            }
             false
         } finally {
             _isLoading.value = false
@@ -194,6 +201,10 @@ class InventarioRepository {
         } catch (e: Exception) {
             _error.value = "Error al actualizar producto: ${e.message}"
             println("❌ Error al actualizar producto: ${e.message}")
+            // Propagar errores al UI
+            if (_error.value != null) {
+                println("❌ Error detectado: ${_error.value}")
+            }
             false
         } finally {
             _isLoading.value = false
@@ -269,6 +280,25 @@ class InventarioRepository {
     }
 
     /**
+     * Cargar categorías desde la API
+     */
+    suspend fun cargarCategorias() {
+        try {
+            _isLoading.value = true
+            _error.value = null
+            val categoriasApi = apiService.obtenerCategorias()
+            _categorias.value = categoriasApi
+            println("✅ Categorías cargadas desde servidor: ${categoriasApi.size}")
+        } catch (e: Exception) {
+            _error.value = "Error al cargar categorías: ${e.message}"
+            println("❌ Error al cargar categorías: ${e.message}")
+            _categorias.value = emptyList()
+        } finally {
+            _isLoading.value = false
+        }
+    }
+
+    /**
      * Limpiar errores
      */
     fun limpiarError() {
@@ -291,5 +321,12 @@ class InventarioRepository {
         _error.value = null
         _isLoading.value = false
         println("✅ Productos demo establecidos correctamente")
+    }
+
+    /**
+     * Establecer categorías directamente (para actualización desde ViewModel)
+     */
+    fun setCategorias(categorias: List<String>) {
+        _categorias.value = categorias
     }
 }
