@@ -109,7 +109,7 @@ private fun SidebarHeader() {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "🔥", // Emoji de fuego como alternativa
+                text = "🧯", // Emoji de fuego como alternativa
                 style = MaterialTheme.typography.headlineLarge,
                 color = ExtintorColors.PureWhite
             )

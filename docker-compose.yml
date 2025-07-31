@@ -1,0 +1,13 @@
+services:
+  server:
+    build:
+      context: ./server
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: 146.83.198.35      
+      DB_PORT: 5432
+      DB_NAME: dpozas_bd
+      DB_USER: dpozas
+      DB_PASSWORD: diego2025
+    restart: unless-stopped

@@ -47,8 +47,11 @@ fun MainScreen(
                 "dashboard" -> DashboardContent()
                 "inventario" -> InventarioContent()
                 "ventas" -> VentasScreen(
-                    viewModel = VentasViewModel(ventasRepository = VentasRepository(apiService = VentasApiService(httpClient = HttpClient()))),
-                    onNavigateToNuevaVenta = { /* lógica para nueva venta */ },
+                    viewModel = VentasViewModel(
+                        ventasRepository = VentasRepository(
+                            apiService = VentasApiService()
+                        )
+                    ),
                     onNavigateToDetalleVenta = { /* lógica para detalle de venta */ }
                 )
                 "calendario" -> CalendarioContent()
@@ -249,7 +252,7 @@ private fun NetworkDiagnosticContent() {
                             Text(
                                 text = if (isWorking) "✅ OK" else "❌ FALLA",
                                 color = if (isWorking) MaterialTheme.colorScheme.primary
-                                       else MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.error
                             )
                         }
                     }

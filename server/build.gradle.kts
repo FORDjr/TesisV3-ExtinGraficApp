@@ -1,3 +1,6 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+
 plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.ktor)
@@ -8,10 +11,13 @@ plugins {
 group = "org.example.project"
 version = "1.0.0"
 
-// Configurar para Java 11
 java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    toolchain.languageVersion.set(JavaLanguageVersion.of(11))
+}
+
+repositories {
+    mavenCentral()
+    gradlePluginPortal()
 }
 
 kotlin {
@@ -20,9 +26,8 @@ kotlin {
 
 application {
     mainClass.set("org.example.project.ApplicationKt")
-    
-    val isDevelopment: Boolean = project.ext.has("development")
-    applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
+    val isDev: Boolean = project.ext.has("development")
+    applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDev")
 }
 
 dependencies {
@@ -40,4 +45,22 @@ dependencies {
     implementation(libs.hikaricp)
     testImplementation(libs.ktor.serverTestHost)
     testImplementation(libs.kotlin.testJunit)
+}
+
+// Configure ShadowJar
+tasks.named<ShadowJar>("shadowJar") {
+    archiveBaseName.set("server")
+    archiveClassifier.set("")
+    archiveVersion.set(project.version.toString())
+    mergeServiceFiles()
+    manifest {
+        attributes(mapOf("Main-Class" to application.mainClass.get()))
+    }
+}
+
+// Alias to build fat-JAR
+tasks.register("fatJar") {
+    group = "build"
+    description = "Build fat-jar using Shadow"
+    dependsOn("shadowJar")
 }

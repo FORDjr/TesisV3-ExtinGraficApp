@@ -61,7 +61,7 @@ fun LoginScreen(
             ) {
                 // Logo o título
                 Text(
-                    text = "🔥 ExtinGrafic",
+                    text = "🧯 ExtinGrafic 🧯",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary

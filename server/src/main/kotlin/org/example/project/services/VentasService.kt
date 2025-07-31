@@ -26,7 +26,9 @@ class VentasService {
 
         // Calcular total
         val total = request.productos.sumOf {
-            BigDecimal.valueOf(it.precio * it.cantidad)
+            val producto = Producto.findById(it.id)
+                ?: throw IllegalArgumentException("Producto con ID ${it.id} no encontrado")
+            BigDecimal.valueOf(producto.precio.toDouble() * it.cantidad)
         }
 
         // Crear la venta
@@ -44,14 +46,14 @@ class VentasService {
         // Crear los productos de la venta y actualizar stock
         val productosVenta = request.productos.map { productoReq ->
             val producto = Producto.findById(productoReq.id)!!
-            val subtotal = BigDecimal.valueOf(productoReq.precio * productoReq.cantidad)
+            val subtotal = BigDecimal.valueOf(producto.precio.toDouble() * productoReq.cantidad)
 
             // Crear registro en venta_productos
             VentaProducto.new {
                 ventaId = venta.id
                 productoId = producto.id
                 cantidad = productoReq.cantidad
-                precio = BigDecimal.valueOf(productoReq.precio)
+                precio = BigDecimal.valueOf(producto.precio.toDouble())
                 this.subtotal = subtotal
             }
 
@@ -63,7 +65,7 @@ class VentasService {
                 id = producto.id.value,
                 nombre = producto.nombre,
                 cantidad = productoReq.cantidad,
-                precio = productoReq.precio,
+                precio = producto.precio.toDouble(),
                 subtotal = subtotal.toDouble()
             )
         }

@@ -64,3 +64,12 @@ fun ProductoUI.toRequest(): ProductoRequest = ProductoRequest(
     cantidad = stock,
     categoria = categoria
 )
+
+data class ProductoCarrito(
+    val id: String,
+    val nombre: String,
+    val precio: Double,
+    val cantidad: Int,
+    val stock: Int,
+    val subtotal: Double
+)

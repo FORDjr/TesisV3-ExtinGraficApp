@@ -18,7 +18,7 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
-    
+
     listOf(
         iosX64(),
         iosArm64(),
@@ -29,12 +29,12 @@ kotlin {
             isStatic = true
         }
     }
-    
+
     jvm("desktop")
-    
+
     sourceSets {
         val desktopMain by getting
-        
+
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
@@ -60,6 +60,7 @@ kotlin {
             implementation("io.ktor:ktor-client-logging:2.3.12")
             implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.12")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+            implementation("com.google.accompanist:accompanist-systemuicontroller:0.32.0")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -107,6 +108,9 @@ android {
             )
         }
         getByName("debug") {
+            // Sufijo para que el APK de debug se instale como app distinta
+            applicationIdSuffix = ".debug"
+
             isMinifyEnabled = false
             isShrinkResources = false
         }

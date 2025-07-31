@@ -48,7 +48,7 @@ export function ProductForm({ initialData, onSubmit }: ProductFormProps) {
   const [newCategory, setNewCategory] = useState("")
   const [customCategories, setCustomCategories] = useState<string[]>([])
 
-  const defaultCategorias = ["Extintores", "Test", "Electrónicos", "Otros"]
+rec  const defaultCategorias = ["Extintores", "Electrónicos", "Test", "Otros"]
   const allCategories = [...defaultCategorias, ...customCategories]
 
   const validateForm = () => {
@@ -162,7 +162,7 @@ export function ProductForm({ initialData, onSubmit }: ProductFormProps) {
                     <SelectValue placeholder="Selecciona una categoría" />
                   </SelectTrigger>
                   <SelectContent>
-                    {allCategories.map((categoria) => (
+                    {defaultCategorias.map((categoria) => (
                       <SelectItem key={categoria} value={categoria}>
                         {categoria}
                       </SelectItem>

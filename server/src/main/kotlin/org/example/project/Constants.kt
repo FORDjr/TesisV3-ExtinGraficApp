@@ -1,21 +1,18 @@
 package org.example.project
 
-// Configuración dinámica basada en el entorno
-private val isProduction = System.getenv("env") == "production"
+/** Lee una variable de entorno o devuelve un valor por defecto */
+private fun env(key: String, default: String) =
+    System.getenv(key) ?: default
 
-// Puertos disponibles
-const val LOCAL_PORT = 8080      // Puerto local para desarrollo
-const val PRODUCTION_PORT = 8080 // Puerto interno para Java (Apache hace proxy desde 80)
+/* ---------- Configuración base ---------- */
 
-// Configuración de base de datos
-const val PRODUCTION_DB_HOST = "pgsqltrans.face.ubiobio.cl"
-const val LOCAL_DB_HOST = "localhost"
-const val DATABASE_PORT = 5432
-const val PRODUCTION_DB_NAME = "dpozas_bd"
-const val LOCAL_DB_NAME = "test_db"
-const val CONNECTION_TIMEOUT = 30000L
+val SERVER_PORT: Int = env("SERVER_PORT", "8080").toInt()
 
-// Funciones para obtener configuración dinámica
-fun getServerPort(): Int = if (isProduction) PRODUCTION_PORT else LOCAL_PORT
-fun getDatabaseHost(): String = if (isProduction) PRODUCTION_DB_HOST else LOCAL_DB_HOST
-fun getDatabaseName(): String = if (isProduction) PRODUCTION_DB_NAME else LOCAL_DB_NAME
+val DB_HOST: String = env("DB_HOST", "localhost")
+val DB_PORT: Int    = env("DB_PORT", "5432").toInt()
+val DB_NAME: String = env("DB_NAME", "test_db")
+val DB_USER: String = env("DB_USER", "postgres")
+val DB_PASS: String = env("DB_PASSWORD", "postgres")
+
+/* Otros “tunables” */
+const val CONNECTION_TIMEOUT = 30_000L       // 30 s

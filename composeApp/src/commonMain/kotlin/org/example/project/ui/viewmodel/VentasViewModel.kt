@@ -254,44 +254,34 @@ class VentasViewModel(
 
     fun crearVenta() {
         val state = _nuevaVentaState.value
-        if (!state.isValid) return
-
+        val productosRequest = state.productos.map {
+            ProductoVentaRequest(
+                id = it.id,
+                cantidad = it.cantidad
+            )
+        }
+        // Usar NuevaVentaRequest y asegurar que metodoPago no sea nulo
+        val ventaRequest = NuevaVentaRequest(
+            cliente = state.cliente,
+            productos = productosRequest,
+            metodoPago = state.metodoPago ?: MetodoPago.EFECTIVO, // Valor por defecto si es nulo
+            observaciones = state.observaciones
+        )
         viewModelScope.launch {
             _nuevaVentaState.value = state.copy(isLoading = true, error = null)
-
-            val nuevaVenta = NuevaVentaRequest(
-                cliente = state.cliente,
-                metodoPago = state.metodoPago!!,
-                observaciones = state.observaciones.takeIf { it.isNotBlank() },
-                productos = state.productos.map {
-                    ProductoVentaRequest(
-                        id = it.id,
-                        cantidad = it.cantidad,
-                        precio = it.precio
-                    )
-                }
-            )
-
             try {
-                ventasRepository.crearVenta(nuevaVenta).fold(
-                    onSuccess = { ventaCreada ->
-                        // Limpiar el formulario después de crear la venta
-                        _nuevaVentaState.value = NuevaVentaUiState()
-                        // Recargar las ventas para mostrar la nueva
-                        cargarDatos()
+                val result = ventasRepository.crearVenta(ventaRequest)
+                result.fold(
+                    onSuccess = { venta ->
+                        _nuevaVentaState.value = state.copy(isLoading = false, ventaCreada = venta, error = null)
+                        cargarDatos() // Actualiza la lista de ventas
                     },
                     onFailure = { error ->
-                        _nuevaVentaState.value = state.copy(
-                            isLoading = false,
-                            error = "Error al crear la venta: ${error.message}"
-                        )
+                        _nuevaVentaState.value = state.copy(isLoading = false, error = error.message)
                     }
                 )
             } catch (e: Exception) {
-                _nuevaVentaState.value = state.copy(
-                    isLoading = false,
-                    error = "Error de conexión: ${e.message}"
-                )
+                _nuevaVentaState.value = state.copy(isLoading = false, error = e.message)
             }
         }
     }
@@ -324,5 +314,9 @@ class VentasViewModel(
                 )
             }
         }
+    }
+
+    fun limpiarVentaCreada() {
+        _nuevaVentaState.value = _nuevaVentaState.value.copy(ventaCreada = null, isLoading = false)
     }
 }

@@ -10,7 +10,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.example.project.data.model.ProductoUI
@@ -138,6 +137,7 @@ fun InventarioContent() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Mostrar productos aunque la lista de categorías esté vacía
             // Filtros de categoría con chips elegantes FUNCIONANDO
             if (categorias.isNotEmpty()) {
                 LazyRow(
@@ -156,7 +156,7 @@ fun InventarioContent() {
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Lista de productos
+            // Mostrar lista de productos siempre
             when {
                 isLoading -> {
                     Box(
@@ -190,24 +190,8 @@ fun InventarioContent() {
                                     fontWeight = FontWeight.SemiBold,
                                     color = ExtintorColors.ExtintorRed
                                 )
-                                Text(
-                                    text = error!!,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = ExtintorColors.Gray600
-                                )
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        ExtintorButton(
-                            text = "Reintentar",
-                            onClick = {
-                                viewModel.limpiarError()
-                                viewModel.cargarProductos()
-                            },
-                            variant = ButtonVariant.Secondary
-                        )
                     }
                 }
 
@@ -270,7 +254,8 @@ fun InventarioContent() {
             onConfirm = { producto ->
                 viewModel.agregarProducto(producto)
                 showAddDialog = false
-            }
+            },
+            categorias = categorias
         )
     }
 
@@ -287,7 +272,8 @@ fun InventarioContent() {
                 viewModel.actualizarProducto(selectedProduct!!.id, producto)
                 showEditDialog = false
                 selectedProduct = null
-            }
+            },
+            categorias = categorias
         )
     }
 }
@@ -299,6 +285,7 @@ private fun ProductoCard(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val puedeEliminar = producto.stock > 0 // Solo permitir eliminar si el producto tiene stock
     ExtintorCard(
         modifier = modifier,
         elevated = true
@@ -320,15 +307,19 @@ private fun ProductoCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     StatusBadge(
-                        text = when (producto.estado) {
-                            ProductoEstado.ACTIVO -> "Activo"
-                            ProductoEstado.INACTIVO -> "Inactivo"
-                            ProductoEstado.AGOTADO -> "Agotado"
+                        text = when {
+                            producto.stock == 0 -> "Sin stock"
+                            producto.estado == ProductoEstado.ACTIVO -> "Activo"
+                            producto.estado == ProductoEstado.INACTIVO -> "Inactivo"
+                            producto.estado == ProductoEstado.AGOTADO -> "Agotado"
+                            else -> ""
                         },
-                        status = when (producto.estado) {
-                            ProductoEstado.ACTIVO -> StatusType.Success
-                            ProductoEstado.INACTIVO -> StatusType.Neutral
-                            ProductoEstado.AGOTADO -> StatusType.Error
+                        status = when {
+                            producto.stock == 0 -> StatusType.Error
+                            producto.estado == ProductoEstado.ACTIVO -> StatusType.Success
+                            producto.estado == ProductoEstado.INACTIVO -> StatusType.Neutral
+                            producto.estado == ProductoEstado.AGOTADO -> StatusType.Error
+                            else -> StatusType.Neutral
                         }
                     )
                 }
@@ -370,11 +361,14 @@ private fun ProductoCard(
                         tint = ExtintorColors.Gray600
                     )
                 }
-                IconButton(onClick = onDelete) {
+                IconButton(
+                    onClick = onDelete,
+                    enabled = puedeEliminar // Deshabilitar si no se puede eliminar
+                ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Eliminar",
-                        tint = ExtintorColors.ExtintorRed
+                        tint = if (puedeEliminar) ExtintorColors.ExtintorRed else ExtintorColors.Gray400
                     )
                 }
             }

@@ -111,6 +111,10 @@ export function InventarioContent() {
       try {
         const response = await apiService.put(`/productos/${editingProduct.id}`, productData)
         setProductos(productos.map((p) => (p.id === editingProduct.id ? response.data : p)))
+        setEditingProduct(null) // Cerrar el diálogo de edición
+      } catch (error) {
+        console.error("Error al editar el producto:", error)
+      }
     }
   }
 
