@@ -1,187 +1,96 @@
-# Sistema de Inventario - Tesis V3
+# TesisV3 ExtinGraficApp
 
-Un sistema completo de gestión de inventario desarrollado con tecnologías modernas, incluyendo aplicaciones móviles multiplataforma y web.
+Sistema de inventario y extintores con backend Ktor + PostgreSQL y app Kotlin Multiplatform (Android/iOS/Desktop). Incluye kardex con exportación PDF/CSV y flujo de aprobación de ajustes.
 
-## 📸 Capturas de Pantalla
+## 🧩 Stack
+- **Backend:** Ktor, Exposed, PostgreSQL, HikariCP, iText (PDF)
+- **App:** Kotlin Multiplatform + Compose Multiplatform, Ktor Client
+- **Infra local:** Docker Compose (server + db)
 
-### Interfaz de Usuario Móvil
+## ✅ Qué está implementado (Fases 0-2)
+- Migraciones base y seeds de productos/usuarios/movimientos.
+- CRUD inventario con soft-delete y filtros.
+- Movimientos de inventario (entradas, salidas, ajustes) y aprobación de ajustes pendientes.
+- Kardex por producto con filtros (tipo, estado, fechas) y exportación PDF/CSV.
+- Restock desde Inventario crea movimiento **ENTRADA** y solo permite mantener/aumentar stock.
+- Ventas generan salidas de stock automáticamente.
 
-| Menú Sidebar | Gestión de Inventario |
-|--------------|----------------------|
-| ![Menu Sidebar](imagesScreenshotsGithub/Screenshot_20250702_211837.png) | ![Inventario](imagesScreenshotsGithub/Screenshot_20250702_211923.png) |
-
-*Capturas de pantalla mostrando la interfaz de usuario de la aplicación móvil con el menú de navegación lateral y la pantalla de gestión de inventario.*
-
-## 🏗️ Arquitectura del Proyecto
-
-Este proyecto incluye múltiples aplicaciones:
-
-- **📱 Aplicación Móvil** (Kotlin Multiplatform + Compose)
-- **🖥️ Aplicación Web** (Next.js + TypeScript)
-- **🚀 Servidor Backend** (Ktor + PostgreSQL)
-
-## 📁 Estructura del Proyecto
-
-```
-TesisV3/
-├── composeApp/          # Aplicación móvil (Android/iOS/Desktop)
-├── business-app/        # Aplicación web de gestión
-├── server/             # Servidor backend API
-├── shared/             # Código compartido
-├── iosApp/             # Configuración específica de iOS
-└── imagesScreenshotsGithub/ # Capturas de pantalla para documentación
-```
-
-## ✅ Estado Actual del Desarrollo
-
-### Completado
-- ✅ Configuración inicial del proyecto multiplataforma
-- ✅ Estructura básica del backend con Ktor
-- ✅ Interfaz de usuario móvil con Compose Multiplatform
-- ✅ Sistema de navegación con menú lateral
-- ✅ Pantalla de gestión de inventario
-- ✅ Diálogos para agregar/editar productos
-- ✅ Componentes UI personalizados (ExtintorCard, ExtintorButton, etc.)
-- ✅ Integración con API REST para productos
-
-### En Desarrollo
-- 🔄 Sincronización de datos entre plataformas
-- 🔄 Validaciones avanzadas de formularios
-- ⏳ Funcionalidades de reportes y analytics
-
-### Pendiente
-- ⏳ Autenticación y autorización
-- ⏳ Notificaciones push
-- ⏳ Modo offline
-- ⏳ Tests unitarios y de integración
-
-## 🛠️ Tecnologías Utilizadas
-
-### Backend
-- **Ktor** - Framework web para Kotlin
-- **PostgreSQL** - Base de datos
-- **Exposed** - ORM para Kotlin
-- **HikariCP** - Pool de conexiones
-
-### Aplicación Móvil
-- **Kotlin Multiplatform** - Código compartido multiplataforma
-- **Compose Multiplatform** - UI moderna y declarativa
-- **Ktor Client** - Cliente HTTP para comunicación con API
-- **Material Design 3** - Sistema de diseño
-
-### Aplicación Web
-- **Next.js 15** - Framework React moderno
-- **TypeScript** - Tipado estático
-- **Tailwind CSS** - Estilos utilitarios
-- **Shadcn/ui** - Componentes de UI
-
-## 🚀 Configuración e Instalación
-
-### Prerrequisitos
-- JDK 11 o superior
-- Android Studio (para desarrollo móvil)
-- Node.js 18+ (para aplicación web)
-- PostgreSQL (para la base de datos)
-
-### 1. Configuración del Backend
-
+## 🚀 Cómo correr rápido (Docker)
 ```bash
-# Navegar al directorio del proyecto
-cd TesisV3
+# build jar
+JAVA_HOME= ./gradlew :server:shadowJar
 
-# Ejecutar el servidor
-./gradlew :server:run
+# levantar stack (server+db con credenciales del compose)
+docker compose up -d
 ```
 
-El servidor estará disponible en `http://localhost:8080`
+Variables de entorno (ejemplo):
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
 
-### 2. Configuración de la Aplicación Móvil
+## 🔗 Endpoints clave
+- Inventario:
+  - `GET /api/inventario?search=&estado=&limit=&offset=`
+  - `POST /api/inventario` (crear)
+  - `PUT /api/inventario/{id}` (editar)
+  - `PATCH /api/inventario/{id}/stock` (restock → registra ENTRADA; solo ≥ stock actual)
+  - `PATCH /api/inventario/{id}/estado` (ACTIVO/INACTIVO)
+- Movimientos:
+  - `POST /api/movimientos` (ENTRADA/SALIDA/AJUSTE; ajustes pueden quedar pendientes)
+  - `POST /api/movimientos/{id}/aprobar` (aprobado=true/false)
+  - `GET /api/movimientos?kardex filters`
+  - `GET /api/movimientos/kardex?productoId=&desde=&hasta=&tipo=&estado=`
+  - `GET /api/movimientos/export/csv|pdf?productoId=...`
+- Salud: `GET /health`
 
+### Ejemplos rápidos (curl)
 ```bash
-# Compilar la aplicación móvil
-./gradlew :composeApp:assembleDebug
+# Kardex producto 1 (fechas inclusivas)
+curl "http://localhost:8080/api/movimientos/kardex?productoId=1&desde=2025-12-01&hasta=2025-12-31"
 
-# Para ejecutar en desktop
-./gradlew :composeApp:run
+# Crear ajuste pendiente
+curl -X POST http://localhost:8080/api/movimientos \
+  -H "Content-Type: application/json" \
+  -d '{"productoId":1,"tipo":"AJUSTE","cantidad":-2,"motivo":"Conteo físico","requiereAprobacion":true}'
+
+# Aprobar ajuste (id=10)
+curl -X POST http://localhost:8080/api/movimientos/10/aprobar \
+  -H "Content-Type: application/json" \
+  -d '{"aprobado":true,"usuarioId":1}'
+
+# Restock (registra ENTRADA)
+curl -X PATCH http://localhost:8080/api/inventario/1/stock \
+  -H "Content-Type: application/json" \
+  -d '{"cantidad":120}'
 ```
 
-### 3. Configuración de la Aplicación Web
+## 📱 App (KMP)
+- Requiere SDK Android configurado.
+- Build debug: `JAVA_HOME= ./gradlew :composeApp:assembleDebug`
+- En emulador Android, el cliente usa `10.0.2.2:8080` como fallback.
+- Pantalla Kardex: filtros, exportación PDF/CSV, creación de ajustes pendientes, aprobación/rechazo.
 
-```bash
-# Navegar al directorio de la aplicación web
-cd business-app
-
-# Instalar dependencias
-pnpm install
-
-# Ejecutar en modo desarrollo
-pnpm dev
+## 🗂️ Estructura relevante
+```
+composeApp/   # App KMP (Android/iOS/Desktop)
+server/       # Backend Ktor + Exposed
+shared/       # Código común (network, models)
+docker-compose.yml
 ```
 
-## 🔧 Configuración de Base de Datos
+## 🧭 Flujo típico
+1) Levantar backend (`docker compose up -d`).
+2) En la app, seleccionar producto → Consultar → ver Kardex.
+3) Restock desde Inventario (PATCH stock) → se registra ENTRADA.
+4) Ventas generan SALIDA automáticamente.
+5) Ajuste físico: crear ajuste pendiente → supervisor aprueba/rechaza → stock se mueve al aprobar.
 
-La aplicación está configurada para conectarse a la base de datos PostgreSQL de la Universidad del Bío-Bío:
-
-- **Host**: `pgsqltrans.face.ubiobio.cl:5432`
-- **Base de datos**: `dpozas_bd`
-
-### Scripts SQL Disponibles
-- `verificar_db.sql` - Verificar conexión y estructura
-- `limpiar_db.sql` - Limpiar datos de prueba
-
-## 📱 Características de la Aplicación Móvil
-
-- ✅ **Conectividad verificada** - Sistema de diagnóstico de conexión
-- ✅ **Gestión de inventario** - CRUD completo de productos
-- ✅ **Interfaz moderna** - Compose Multiplatform
-- ✅ **Multiplataforma** - Android, iOS y Desktop
-
-## 🌐 Características de la Aplicación Web
-
-- 📊 **Dashboard** - Visualización de métricas
-- 📦 **Gestión de inventario** - Interface web completa
-- 📅 **Calendario** - Planificación y seguimiento
-- 💰 **Módulo de ventas** - Gestión de transacciones
-
-## 🔗 API Endpoints
-
-### Inventario
-- `GET /api/inventario` - Obtener todos los productos
-- `POST /api/inventario` - Crear nuevo producto
-- `PUT /api/inventario/{id}` - Actualizar producto
-- `DELETE /api/inventario/{id}` - Eliminar producto
-- `PATCH /api/inventario/{id}/stock` - Actualizar stock
-
-### Salud del Sistema
-- `GET /health` - Verificar estado del servidor
-
-## 🐛 Solución de Problemas
-
-### Problema de Conectividad Móvil
-Si la aplicación móvil no puede conectarse al servidor:
-
-1. Verificar que el servidor esté ejecutándose en el puerto 8080
-2. Para emulador Android: usar `http://10.0.2.2:8080`
-3. Para dispositivo físico: usar la IP de tu computadora
-4. Verificar permisos de internet en AndroidManifest.xml
-
-### Logs de Diagnóstico
-La aplicación incluye logs detallados para diagnosticar problemas de conectividad:
-```
-🔍 Verificando conexión a: http://10.0.2.2:8080/health
-✅ Conexión exitosa: 200 OK
-🔄 Obteniendo productos desde: http://10.0.2.2:8080/api/inventario
-✅ Productos obtenidos: 5
-```
-
-## 📚 Documentación Adicional
-
-- `guia_postman.md` - Guía para probar la API con Postman
-
-## 👨‍💻 Desarrollo
-
-Este proyecto es parte de una tesis universitaria enfocada en el desarrollo de sistemas de gestión empresarial con tecnologías modernas multiplataforma.
+## 🧪 Notas
+- Fechas en Kardex: `desde/hasta` son inclusivas; si usas solo fecha (`YYYY-MM-DD`), se toma inicio/fin de día.
+- El backend está semillado con productos, usuarios y movimientos de ejemplo.
 
 ## 📄 Licencia
-
-Proyecto académico - Universidad del Bío-Bío
+Proyecto académico.
