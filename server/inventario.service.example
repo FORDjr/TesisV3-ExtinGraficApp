@@ -1,0 +1,18 @@
+[Unit]
+Description=Inventario Ktor Service
+After=network.target
+Requires=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/inventario
+EnvironmentFile=/opt/inventario/.env
+ExecStart=/usr/bin/java -jar /opt/inventario/server.jar
+Restart=on-failure
+User=olimpo
+Group=olimpo
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target
+

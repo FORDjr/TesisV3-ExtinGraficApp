@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.example.project.data.repository.InventarioRepository
+import org.example.project.data.model.EstadoProductoRemote
+import org.example.project.data.model.InventarioQuery
 import org.example.project.data.model.ProductoRequest
 import org.example.project.data.model.ProductoUI
 
@@ -16,6 +18,8 @@ class InventarioViewModel : ViewModel() {
     val productos = repository.productos
     val isLoading = repository.isLoading
     val error = repository.error
+    val offlineMode = repository.offlineMode // NUEVO
+    val hasMore = repository.hasMore
 
     // Estado de conexión
     private val _isConnected = MutableStateFlow<Boolean?>(null)
@@ -28,6 +32,9 @@ class InventarioViewModel : ViewModel() {
     private val _selectedCategory = MutableStateFlow("Todas")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
 
+    private val _estadoFiltro = MutableStateFlow<EstadoProductoRemote?>(EstadoProductoRemote.ACTIVO)
+    val estadoFiltro: StateFlow<EstadoProductoRemote?> = _estadoFiltro.asStateFlow()
+
     // Eliminar lista local de categorías y datos demo
     // Usar solo categorías del repositorio
     val categorias: StateFlow<List<String>> = repository.categorias
@@ -36,7 +43,7 @@ class InventarioViewModel : ViewModel() {
     init {
         viewModelScope.launch {
             verificarConexion()
-            repository.cargarProductos()
+            repository.cargarProductos(construirQuery())
             repository.cargarCategorias()
             // Si la API no devuelve categorías, generarlas desde los productos
             productos.collect { listaProductos ->
@@ -48,27 +55,8 @@ class InventarioViewModel : ViewModel() {
         }
     }
 
-    // Override productos para mostrar datos del servidor
-    val productosFiltrados: StateFlow<List<ProductoUI>> = combine(
-        productos,
-        searchText,
-        selectedCategory
-    ) { productos, search, category ->
-        productos.filter { producto ->
-            val matchesSearch = if (search.isEmpty()) {
-                true
-            } else {
-                producto.nombre.contains(search, ignoreCase = true) ||
-                producto.categoria.contains(search, ignoreCase = true)
-            }
-            val matchesCategory = category == "Todas" || producto.categoria == category
-            matchesSearch && matchesCategory
-        }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+    // Productos listos para UI (filtrados por backend)
+    val productosFiltrados: StateFlow<List<ProductoUI>> = productos
 
     // Estadísticas calculadas usando solo productos del repositorio
     val estadisticas: StateFlow<EstadisticasInventario> = productos.map { productos ->
@@ -105,9 +93,9 @@ class InventarioViewModel : ViewModel() {
     /**
      * Cargar productos desde la API
      */
-    fun cargarProductos() {
+    fun cargarProductos(reset: Boolean = true) {
         viewModelScope.launch {
-            repository.cargarProductos()
+            repository.cargarProductos(construirQuery(), reset)
         }
     }
 
@@ -116,6 +104,7 @@ class InventarioViewModel : ViewModel() {
      */
     fun updateSearchText(text: String) {
         _searchText.value = text
+        cargarProductos()
     }
 
     /**
@@ -123,6 +112,12 @@ class InventarioViewModel : ViewModel() {
      */
     fun updateSelectedCategory(category: String?) {
         _selectedCategory.value = category ?: "Todas"
+        cargarProductos()
+    }
+
+    fun updateEstadoFiltro(estado: EstadoProductoRemote?) {
+        _estadoFiltro.value = estado
+        cargarProductos()
     }
 
     /**
@@ -134,7 +129,7 @@ class InventarioViewModel : ViewModel() {
                 println("📦 Agregando producto: ${producto.nombre}")
                 val exitoso = repository.crearProducto(producto)
                 if (exitoso) {
-                    println("�� Producto agregado exitosamente")
+                    println("✅ Producto agregado exitosamente")
                     cargarProductos() // Recargar lista
                 } else {
                     println("❌ Error al agregar producto")
@@ -184,6 +179,33 @@ class InventarioViewModel : ViewModel() {
             }
         }
     }
+
+    /**
+     * Actualizar stock de un producto (solo cantidad)
+     */
+    fun actualizarStock(id: Int, nuevaCantidad: Int, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                val ok = repository.actualizarStock(id, nuevaCantidad)
+                if (ok) {
+                    cargarProductos()
+                }
+                onResult(ok)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    fun cargarMas() {
+        viewModelScope.launch { repository.cargarMas() }
+    }
+
+    private fun construirQuery(): InventarioQuery = InventarioQuery(
+        search = _searchText.value,
+        categoria = _selectedCategory.value.takeIf { it.isNotBlank() && it != "Todas" },
+        estado = _estadoFiltro.value
+    )
 
     /**
      * Limpiar errores

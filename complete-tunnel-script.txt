@@ -1,0 +1,81 @@
+# COMANDOS PARA SERVIDOR (completar script cortado y usar URL funcional)
+
+# 1. Usar la URL que YA FUNCIONA
+echo "https://alpine-actor-remind-andy.trycloudflare.com" > /var/log/cloudflared-current-url.txt
+
+# 2. Probar que sigue funcionando
+curl -I "https://alpine-actor-remind-andy.trycloudflare.com/health"
+curl -s "https://alpine-actor-remind-andy.trycloudflare.com/api/dashboard" | head
+
+# 3. Completar el script que se cortó (continuar desde donde se cortó)
+cat >>/usr/local/bin/regen-tunnel.sh <<'EOF'
+nohup cloudflared tunnel --no-autoupdate --url http://127.0.0.1:9090 --loglevel info --logfile /var/log/cloudflared.log >/dev/null 2>&1 &
+sleep 8
+URL=$(grep -a -i trycloudflare /var/log/cloudflared.log | sed -n 's|.*\(https://[A-Za-z0-9.-]*trycloudflare.com\).*|\1|p' | tail -1)
+echo "$URL" | tee /var/log/cloudflared-current-url.txt
+# Esperar a que el DNS se propague
+for i in {1..10}; do
+  if curl -Is "$URL/health" >/dev/null 2>&1; then
+    echo "Túnel listo: $URL"
+    break
+  fi
+  echo "Esperando DNS... intento $i/10"
+  sleep 3
+done
+EOF
+
+# 4. Hacer ejecutable
+chmod +x /usr/local/bin/regen-tunnel.sh
+
+# 5. Ver procesos actuales y limpiar si hay muchos
+ps -eo pid,cmd | grep -i cloudflared | grep -v grep
+# Si hay más de 2 procesos, matar todos y dejar uno:
+pkill -f "cloudflared tunnel" 2>/dev/null || true
+sleep 2
+
+# 6. Crear un túnel limpio y esperar a que esté listo
+nohup cloudflared tunnel --no-autoupdate --url http://127.0.0.1:9090 --loglevel info --logfile /var/log/cloudflared-clean.log >/dev/null 2>&1 &
+sleep 8
+CLEAN_URL=$(grep -a -i trycloudflare /var/log/cloudflared-clean.log | sed -n 's|.*\(https://[A-Za-z0-9.-]*trycloudflare.com\).*|\1|p' | tail -1)
+echo "URL limpia: $CLEAN_URL"
+
+# 7. Probar la nueva URL (con reintentos)
+for i in {1..15}; do
+  if curl -Is "$CLEAN_URL/health" >/dev/null 2>&1; then
+    echo "✅ Nueva URL funcionando: $CLEAN_URL"
+    echo "$CLEAN_URL" > /var/log/cloudflared-current-url.txt
+    break
+  fi
+  echo "🔄 Esperando propagación DNS... $i/15"
+  sleep 5
+done
+
+# 8. Si la nueva no funciona, volver a la anterior que funcionaba
+if ! curl -Is "$CLEAN_URL/health" >/dev/null 2>&1; then
+  echo "⚠️  Nueva URL no responde, usando la anterior"
+  echo "https://alpine-actor-remind-andy.trycloudflare.com" > /var/log/cloudflared-current-url.txt
+  curl -I "https://alpine-actor-remind-andy.trycloudflare.com/health"
+fi
+
+# 9. Mostrar URL final
+echo "URL FINAL PARA LA APP:"
+cat /var/log/cloudflared-current-url.txt
+
+# 10. Script rápido para consultar URL después
+cat >/usr/local/bin/show-tunnel-url.sh <<'EOF'
+#!/usr/bin/env bash
+URL=$(cat /var/log/cloudflared-current-url.txt 2>/dev/null)
+if [ -n "$URL" ]; then
+  echo "URL del túnel: $URL"
+  echo "Probando health..."
+  curl -I "$URL/health" || echo "No responde"
+else
+  echo "No hay URL guardada"
+fi
+EOF
+chmod +x /usr/local/bin/show-tunnel-url.sh
+
+# COMANDOS DE USO DIARIO:
+# show-tunnel-url.sh          (mostrar URL actual)
+# regen-tunnel.sh             (regenerar túnel)
+# cat /var/log/cloudflared-current-url.txt  (solo mostrar URL)

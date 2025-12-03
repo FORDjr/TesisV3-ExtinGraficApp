@@ -5,6 +5,8 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import org.example.project.models.ActualizarEstadoProductoRequest
+import org.example.project.models.EstadoProducto
 import org.example.project.models.ProductoRequest
 import org.example.project.services.InventarioService
 
@@ -16,8 +18,31 @@ fun Route.inventarioRoutes() {
         // GET /api/inventario - Obtener todos los productos
         get {
             try {
-                val productos = inventarioService.obtenerTodosLosProductos()
-                call.respond(HttpStatusCode.OK, productos)
+                val search = call.request.queryParameters["search"] ?: call.request.queryParameters["q"]
+                val codigo = call.request.queryParameters["codigo"]
+                val categoria = call.request.queryParameters["categoria"]
+                val estadoParam = call.request.queryParameters["estado"]?.uppercase()
+                val estado = try { estadoParam?.let { EstadoProducto.valueOf(it) } } catch (_: Exception) { null }
+                if (estadoParam != null && estado == null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Estado inválido: $estadoParam"))
+                    return@get
+                }
+                val criticos = call.request.queryParameters["criticos"]?.toBooleanStrictOrNull() ?: false
+                val limit = call.request.queryParameters["limit"]?.toIntOrNull()?.coerceIn(1, 200) ?: 50
+                val offset = call.request.queryParameters["offset"]?.toIntOrNull()?.coerceAtLeast(0) ?: 0
+
+                val page = inventarioService.listarProductos(
+                    filtros = InventarioService.Filtros(
+                        search = search,
+                        codigo = codigo,
+                        categoria = categoria,
+                        estado = estado,
+                        criticos = criticos
+                    ),
+                    limit = limit,
+                    offset = offset
+                )
+                call.respond(HttpStatusCode.OK, page)
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, mapOf("error" to e.message))
             }
@@ -58,6 +83,17 @@ fun Route.inventarioRoutes() {
                     "error" to e.message,
                     "type" to e::class.simpleName
                 ))
+            }
+        }
+
+        // GET /api/inventario/categorias - Lista de categorías únicas
+        get("/categorias") {
+            try {
+                val incluirInactivos = call.request.queryParameters["incluirInactivos"]?.toBooleanStrictOrNull() ?: false
+                val categorias = inventarioService.obtenerCategorias(onlyActive = !incluirInactivos)
+                call.respond(HttpStatusCode.OK, categorias)
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, mapOf("error" to (e.message ?: "Error obteniendo categorías")))
             }
         }
 
@@ -163,7 +199,7 @@ fun Route.inventarioRoutes() {
 
                 val eliminado = inventarioService.eliminarProducto(id)
                 if (eliminado) {
-                    call.respond(HttpStatusCode.OK, mapOf("message" to "Producto eliminado exitosamente"))
+                    call.respond(HttpStatusCode.OK, mapOf("message" to "Producto desactivado exitosamente"))
                 } else {
                     call.respond(HttpStatusCode.NotFound, mapOf("error" to "Producto no encontrado"))
                 }
@@ -196,6 +232,37 @@ fun Route.inventarioRoutes() {
                 }
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("error" to e.message))
+            }
+        }
+
+        // PATCH /api/inventario/{id}/estado - Cambiar estado ACTIVO/INACTIVO
+        patch("/{id}/estado") {
+            val id = call.parameters["id"]?.toIntOrNull()
+            if (id == null) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
+                return@patch
+            }
+            val body = try { call.receive<ActualizarEstadoProductoRequest>() } catch (_: Exception) { null }
+            if (body == null) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Cuerpo inválido"))
+                return@patch
+            }
+
+            val actualizado = inventarioService.cambiarEstado(id, body.estado)
+            if (actualizado == null) {
+                call.respond(HttpStatusCode.NotFound, mapOf("error" to "Producto no encontrado"))
+            } else {
+                call.respond(actualizado)
+            }
+        }
+
+        // GET críticos
+        get("/criticos") {
+            try {
+                val criticos = inventarioService.productosCriticos()
+                call.respond(HttpStatusCode.OK, criticos)
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, mapOf("error" to e.message))
             }
         }
     }

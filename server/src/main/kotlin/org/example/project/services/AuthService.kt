@@ -83,6 +83,8 @@ object AuthService {
                     it[rol] = "user"
                     it[activo] = true
                     it[fechaCreacion] = ahora
+                    it[intentosFallidos] = 0
+                    it[bloqueadoHasta] = null
                 }
 
                 val usuario = UsuarioResponse(
@@ -92,7 +94,9 @@ object AuthService {
                     apellido = registro.apellido,
                     rol = "user",
                     activo = true,
-                    fechaCreacion = ahora.toString()
+                    fechaCreacion = ahora.toString(),
+                    intentosFallidos = 0,
+                    bloqueadoHasta = null
                 )
 
                 RegistroResponse(
@@ -144,6 +148,8 @@ object AuthService {
                 val ahora = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
                 Usuarios.update({ Usuarios.id eq usuario[Usuarios.id] }) {
                     it[fechaUltimoAcceso] = ahora
+                    it[intentosFallidos] = 0
+                    it[bloqueadoHasta] = null
                 }
 
                 val usuarioResponse = UsuarioResponse(
@@ -153,7 +159,9 @@ object AuthService {
                     apellido = usuario[Usuarios.apellido],
                     rol = usuario[Usuarios.rol],
                     activo = usuario[Usuarios.activo],
-                    fechaCreacion = usuario[Usuarios.fechaCreacion].toString()
+                    fechaCreacion = usuario[Usuarios.fechaCreacion].toString(),
+                    intentosFallidos = usuario[Usuarios.intentosFallidos],
+                    bloqueadoHasta = usuario[Usuarios.bloqueadoHasta]?.toString()
                 )
 
                 // Generar token simple (en producción usar JWT)
@@ -198,7 +206,9 @@ object AuthService {
                     apellido = it[Usuarios.apellido],
                     rol = it[Usuarios.rol],
                     activo = it[Usuarios.activo],
-                    fechaCreacion = it[Usuarios.fechaCreacion].toString()
+                    fechaCreacion = it[Usuarios.fechaCreacion].toString(),
+                    intentosFallidos = it[Usuarios.intentosFallidos],
+                    bloqueadoHasta = it[Usuarios.bloqueadoHasta]?.toString()
                 )
             }
         }

@@ -9,26 +9,23 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
+import org.example.project.data.model.InventarioPage
+import org.example.project.data.model.InventarioQuery
 import org.example.project.data.model.Producto
 import org.example.project.data.model.ProductoRequest
-import org.example.project.*
+import org.example.project.LOCAL_SERVER_URL
+import org.example.project.preferredBaseUrl
 
 class InventarioApiService {
 
     companion object {
-        // URL del servidor universitario - Configuración para producción
-        private const val UNIVERSITY_URL = "http://146.83.198.35:1609" // Servidor universidad
-        private const val PRIMARY_URL = UNIVERSITY_URL      // Usar servidor universitario como primario
-        private const val LOCALHOST_URL = "http://localhost:8080"    // Para desarrollo desktop
-        private const val EMULATOR_URL = "http://10.0.2.2:8080"      // Para emulador Android local
-
         private const val API_PATH = "/api/inventario"
-
-        // Lista de URLs a probar - primero universidad, luego localhost, luego emulador
-        private val CONNECTION_URLS = listOf(
-            PRIMARY_URL,        // Servidor universidad primero
-            LOCALHOST_URL,      // localhost para desarrollo desktop
-            EMULATOR_URL        // Emulador Android como respaldo
+        private const val EMULATOR_URL = "http://10.0.2.2:8080"
+        // Lista priorizada: túnel (preferred), luego localhost y emulador
+        private val CONNECTION_URLS: List<String> = listOf(
+            preferredBaseUrl(),
+            LOCAL_SERVER_URL,
+            EMULATOR_URL
         )
     }
 
@@ -40,13 +37,11 @@ class InventarioApiService {
                 ignoreUnknownKeys = true
             })
         }
-
         install(HttpTimeout) {
-            requestTimeoutMillis = 15000L  // Reducido a 15 segundos
-            connectTimeoutMillis = 10000L  // Reducido a 10 segundos
-            socketTimeoutMillis = 15000L   // Reducido a 15 segundos
+            requestTimeoutMillis = 15000L
+            connectTimeoutMillis = 10000L
+            socketTimeoutMillis = 15000L
         }
-
         install(Logging) {
             logger = Logger.DEFAULT
             level = LogLevel.INFO
@@ -146,17 +141,31 @@ class InventarioApiService {
     /**
      * Obtener todos los productos del inventario
      */
-    suspend fun obtenerProductos(): List<Producto> {
+    suspend fun obtenerProductos(
+        query: InventarioQuery,
+        limit: Int,
+        offset: Int
+    ): InventarioPage {
         return try {
             makeRequest { url ->
-                println("������ Obteniendo productos desde: $url$API_PATH")
-                val productos = httpClient.get("$url$API_PATH").body<List<Producto>>()
-                println("✅ Productos obtenidos: ${productos.size}")
-                productos
+                println("📦 Obteniendo productos desde: $url$API_PATH")
+                val resp = httpClient.get("$url$API_PATH") {
+                    parameter("limit", limit)
+                    parameter("offset", offset)
+                    query.search.takeIf { it.isNotBlank() }?.let { parameter("search", it) }
+                    query.categoria?.takeIf { it.isNotBlank() }?.let { parameter("categoria", it) }
+                    query.estado?.let { parameter("estado", it.name) }
+                }
+                if (!resp.status.isSuccess()) {
+                    throw Exception("Respuesta no exitosa (${resp.status}) al obtener productos")
+                }
+                val data: InventarioPage = resp.body()
+                println("✅ Productos recibidos: ${data.items.size} (offset=$offset)")
+                data
             }
         } catch (e: Exception) {
             println("❌ Error al obtener productos: ${e.message}")
-            emptyList()
+            throw e // Volver a lanzar excepción para que el repositorio pueda manejar el fallback
         }
     }
 
@@ -177,34 +186,36 @@ class InventarioApiService {
     /**
      * Crear un nuevo producto
      */
-    suspend fun crearProducto(producto: ProductoRequest): Producto? {
+    suspend fun crearProducto(producto: ProductoRequest): Boolean {
         return try {
             makeRequest { url ->
-                httpClient.post("$url$API_PATH") {
+                val resp = httpClient.post("$url$API_PATH") {
                     contentType(ContentType.Application.Json)
                     setBody(producto)
-                }.body()
+                }
+                resp.status == HttpStatusCode.Created || resp.status == HttpStatusCode.OK
             }
         } catch (e: Exception) {
-            println("Error al crear producto: ${e.message}")
-            null
+            println("❌ Error creando producto: ${e.message}")
+            false
         }
     }
 
     /**
      * Actualizar un producto existente
      */
-    suspend fun actualizarProducto(id: Int, producto: ProductoRequest): Producto? {
+    suspend fun actualizarProducto(id: Int, producto: ProductoRequest): Boolean {
         return try {
             makeRequest { url ->
-                httpClient.put("$url$API_PATH/$id") {
+                val resp = httpClient.put("$url$API_PATH/$id") {
                     contentType(ContentType.Application.Json)
                     setBody(producto)
-                }.body()
+                }
+                resp.status == HttpStatusCode.OK
             }
         } catch (e: Exception) {
             println("Error al actualizar producto $id: ${e.message}")
-            null
+            false
         }
     }
 
@@ -231,8 +242,7 @@ class InventarioApiService {
     suspend fun eliminarProducto(id: Int): Boolean {
         return try {
             makeRequest { url ->
-                val response = httpClient.delete("$url$API_PATH/$id")
-                response.status.isSuccess()
+                httpClient.delete("$url$API_PATH/$id").status == HttpStatusCode.OK
             }
         } catch (e: Exception) {
             println("Error al eliminar producto $id: ${e.message}")
@@ -246,22 +256,29 @@ class InventarioApiService {
     suspend fun obtenerCategorias(): List<String> {
         return try {
             makeRequest { url ->
-                val categorias = httpClient.get("$url$API_PATH/categorias").body<List<String>>()
+                val resp = httpClient.get("$url$API_PATH/categorias") {
+                    parameter("incluirInactivos", true)
+                }
+                if (!resp.status.isSuccess()) {
+                    throw Exception("Respuesta no exitosa (${resp.status}) al obtener categorías")
+                }
+                val categorias: List<String> = resp.body()
                 println("✅ Categorías obtenidas: ${categorias.size}")
                 categorias
             }
         } catch (e: Exception) {
             println("❌ Error al obtener categorías: ${e.message}")
-            emptyList()
+            throw e // Volver a lanzar excepción para que el repositorio pueda manejar el fallback
         }
     }
 
     /**
-     * Prueba simple de conexión (método básico)
+     * Prueba simple de conexión (método básico) adaptada a URL dinámica
      */
     suspend fun probarConexion(): Boolean {
         return try {
-            val response = httpClient.get("http://192.168.1.24:8090/test")
+            val url = findWorkingUrl() ?: return false
+            val response = httpClient.get("$url/health")
             response.status.isSuccess()
         } catch (e: Exception) {
             println("❌ Prueba falló: ${e.message}")

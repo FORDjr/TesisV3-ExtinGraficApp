@@ -7,6 +7,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.example.project.models.*
 import org.example.project.services.VentasService
+import org.example.project.services.InventarioService
 
 fun Route.ventasRoutes() {
     val ventasService = VentasService()
@@ -16,8 +17,8 @@ fun Route.ventasRoutes() {
         // GET /api/ventas - Obtener todas las ventas
         get {
             try {
-                val ventas = ventasService.obtenerTodasLasVentas()
-                call.respond(HttpStatusCode.OK, ventas)
+                val resumen = ventasService.obtenerVentasConMetricas()
+                call.respond(HttpStatusCode.OK, resumen)
             } catch (e: Exception) {
                 println("Error al obtener ventas: ${e.message}")
                 call.respond(HttpStatusCode.InternalServerError, mapOf("error" to e.message))
@@ -90,9 +91,12 @@ fun Route.ventasRoutes() {
         // GET /api/ventas/productos/disponibles - Obtener productos disponibles para venta
         get("/productos/disponibles") {
             try {
-                // Reutilizar el servicio de inventario para obtener productos con stock
-                val inventarioService = org.example.project.services.InventarioService()
-                val productos = inventarioService.obtenerTodosLosProductos()
+                val inventarioService = InventarioService()
+                val productos = inventarioService
+                    .listarProductos(
+                        filtros = InventarioService.Filtros(estado = EstadoProducto.ACTIVO),
+                        limit = 200
+                    ).items
                     .filter { it.cantidad > 0 } // Solo productos con stock
 
                 call.respond(HttpStatusCode.OK, productos)

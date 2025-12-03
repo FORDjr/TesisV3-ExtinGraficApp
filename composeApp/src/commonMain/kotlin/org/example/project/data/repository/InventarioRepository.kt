@@ -4,6 +4,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.example.project.data.api.InventarioApiService
+import org.example.project.data.model.EstadoProductoRemote
+import org.example.project.data.model.InventarioQuery
 import org.example.project.data.model.ProductoRequest
 import org.example.project.data.model.toUI
 import org.example.project.data.model.ProductoUI
@@ -12,21 +14,28 @@ class InventarioRepository {
 
     private val apiService = InventarioApiService()
 
-    // Estado reactivo de la lista de productos
     private val _productos = MutableStateFlow<List<ProductoUI>>(emptyList())
     val productos: StateFlow<List<ProductoUI>> = _productos.asStateFlow()
 
-    // Estado de carga
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    // Estado de error
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    // Estado reactivo de la lista de categorías
     private val _categorias = MutableStateFlow<List<String>>(emptyList())
     val categorias: StateFlow<List<String>> = _categorias.asStateFlow()
+
+    // Nuevo: estado modo offline
+    private val _offlineMode = MutableStateFlow(false)
+    val offlineMode: StateFlow<Boolean> = _offlineMode.asStateFlow()
+
+    private val _hasMore = MutableStateFlow(false)
+    val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
+
+    private val pageSize = 20
+    private var currentOffset = 0
+    private var currentQuery: InventarioQuery = InventarioQuery()
 
     /**
      * Verificar conexión con el servidor
@@ -35,9 +44,12 @@ class InventarioRepository {
         return try {
             _isLoading.value = true
             _error.value = null
-            apiService.verificarConexion()
+            val ok = apiService.verificarConexion()
+            if (ok) _offlineMode.value = false
+            ok
         } catch (e: Exception) {
             _error.value = "Error de conexión: ${e.message}"
+            _offlineMode.value = true
             false
         } finally {
             _isLoading.value = false
@@ -45,104 +57,57 @@ class InventarioRepository {
     }
 
     /**
-     * Cargar todos los productos desde la API con fallback a modo demo
+     * Cargar todos los productos desde la API
      */
-    suspend fun cargarProductos() {
+    suspend fun cargarProductos(
+        query: InventarioQuery = currentQuery,
+        reset: Boolean = true
+    ) {
         try {
+            if (reset) {
+                currentQuery = query
+                currentOffset = 0
+                _productos.value = emptyList()
+                _hasMore.value = false
+            }
             _isLoading.value = true
             _error.value = null
 
             println("🔄 Intentando cargar productos desde servidor...")
 
-            // Intentar cargar desde API
-            val productosApi = apiService.obtenerProductos()
-            val productosUI = productosApi.map { it.toUI() }
+            val page = apiService.obtenerProductos(currentQuery, pageSize, currentOffset)
+            val productosUI = page.items
+                .sortedByDescending { it.fechaActualizacion }
+                .map { it.toUI() }
 
-            _productos.value = productosUI
-            println("✅ Productos cargados desde servidor: ${productosUI.size} productos")
+            _productos.value = if (reset) {
+                productosUI
+            } else {
+                val merged = _productos.value.associateBy { it.id }.toMutableMap()
+                productosUI.forEach { merged[it.id] = it }
+                merged.values.sortedByDescending { it.fechaIngreso }
+            }
+            currentOffset += page.items.size
+            _hasMore.value = page.hasMore
+            _offlineMode.value = false
+
+            actualizarCategoriasDesdeProductos()
+
+            println("✅ Productos cargados: ${_productos.value.size} (pagina=${page.items.size})")
 
         } catch (e: Exception) {
-            // Si falla la API, cargar datos demo INMEDIATAMENTE
-            println("🔄 Error cargando desde servidor: ${e.message}")
-            println("🔄 Activando datos demo...")
-            cargarDatosDemo()
+            _error.value = e.message ?: "Error desconocido al cargar productos"
+            _offlineMode.value = true
+            _hasMore.value = false
+            println("❌ Error cargando productos: ${e.message}")
         } finally {
             _isLoading.value = false
         }
     }
 
-    /**
-     * Cargar datos demo para modo offline
-     */
-    private fun cargarDatosDemo() {
-        val fechaHoy = "2025-01-03" // Fecha actual para los productos demo
-
-        val productosDemo = listOf(
-            ProductoUI(
-                id = 1,
-                nombre = "Extintor PQS 6kg",
-                categoria = "Extintores",
-                precio = 45000.0,
-                stock = 15,
-                stockMinimo = 5,
-                descripcion = "Extintor de polvo químico seco para fuegos ABC",
-                fechaIngreso = fechaHoy
-            ),
-            ProductoUI(
-                id = 2,
-                nombre = "Extintor CO2 5kg",
-                categoria = "Extintores",
-                precio = 65000.0,
-                stock = 8,
-                stockMinimo = 3,
-                descripcion = "Extintor de dióxido de carbono para fuegos BC",
-                fechaIngreso = fechaHoy
-            ),
-            ProductoUI(
-                id = 3,
-                nombre = "Detector de Humo",
-                categoria = "Detectores",
-                precio = 25000.0,
-                stock = 25,
-                stockMinimo = 10,
-                descripcion = "Detector de humo fotoeléctrico",
-                fechaIngreso = fechaHoy
-            ),
-            ProductoUI(
-                id = 4,
-                nombre = "Manguera Contraincendios",
-                categoria = "Accesorios",
-                precio = 120000.0,
-                stock = 5,
-                stockMinimo = 2,
-                descripcion = "Manguera de 25m para sistemas contraincendios",
-                fechaIngreso = fechaHoy
-            ),
-            ProductoUI(
-                id = 5,
-                nombre = "Señalética Salida Emergencia",
-                categoria = "Señalización",
-                precio = 8000.0,
-                stock = 50,
-                stockMinimo = 20,
-                descripcion = "Señal luminosa de salida de emergencia",
-                fechaIngreso = fechaHoy
-            ),
-            ProductoUI(
-                id = 6,
-                nombre = "Extintor H2O 9L",
-                categoria = "Extintores",
-                precio = 35000.0,
-                stock = 2,
-                stockMinimo = 5,
-                descripcion = "Extintor de agua para fuegos tipo A",
-                fechaIngreso = fechaHoy
-            )
-        )
-
-        _productos.value = productosDemo
-        _error.value = null
-        println("✅ Datos demo cargados: ${productosDemo.size} productos")
+    suspend fun cargarMas() {
+        if (!_hasMore.value || _isLoading.value) return
+        cargarProductos(currentQuery, reset = false)
     }
 
     /**
@@ -153,29 +118,22 @@ class InventarioRepository {
             _isLoading.value = true
             _error.value = null
 
-            val nuevoProducto = apiService.crearProducto(productoRequest)
-
-            if (nuevoProducto != null) {
-                // Recargar la lista para mostrar el nuevo producto
-                cargarProductos()
-                println("✅ Producto creado exitosamente: ${nuevoProducto.nombre}")
+            val exito = apiService.crearProducto(productoRequest)
+            if (exito) {
+                cargarProductos(reset = true)
+                // Reconsultar categorías para reflejar nuevas
+                cargarCategorias()
+                println("✅ Producto creado")
                 true
             } else {
-                _error.value = "Error al crear el producto"
+                _error.value = "Error al crear producto"
                 false
             }
-
         } catch (e: Exception) {
             _error.value = "Error al crear producto: ${e.message}"
-            println("❌ Error al crear producto: ${e.message}")
-            // Propagar errores al UI
-            if (_error.value != null) {
-                println("❌ Error detectado: ${_error.value}")
-            }
+            println("❌ ${e.message}")
             false
-        } finally {
-            _isLoading.value = false
-        }
+        } finally { _isLoading.value = false }
     }
 
     /**
@@ -186,29 +144,20 @@ class InventarioRepository {
             _isLoading.value = true
             _error.value = null
 
-            val productoActualizado = apiService.actualizarProducto(id, productoRequest)
-
-            if (productoActualizado != null) {
-                // Recargar la lista para mostrar los cambios
-                cargarProductos()
-                println("✅ Producto actualizado exitosamente: ${productoActualizado.nombre}")
+            val exito = apiService.actualizarProducto(id, productoRequest)
+            if (exito) {
+                cargarProductos(reset = true)
+                println("✅ Producto actualizado ($id)")
                 true
             } else {
-                _error.value = "Error al actualizar el producto"
+                _error.value = "Error al actualizar producto"
                 false
             }
-
         } catch (e: Exception) {
             _error.value = "Error al actualizar producto: ${e.message}"
-            println("❌ Error al actualizar producto: ${e.message}")
-            // Propagar errores al UI
-            if (_error.value != null) {
-                println("❌ Error detectado: ${_error.value}")
-            }
+            println("❌ ${e.message}")
             false
-        } finally {
-            _isLoading.value = false
-        }
+        } finally { _isLoading.value = false }
     }
 
     /**
@@ -223,28 +172,24 @@ class InventarioRepository {
 
             if (productoActualizado != null) {
                 // Actualizar solo el producto específico en la lista local
-                val productosActuales = _productos.value.toMutableList()
-                val indice = productosActuales.indexOfFirst { it.id == id }
+                val lista = _productos.value.toMutableList()
+                val idx = lista.indexOfFirst { it.id == id }
 
-                if (indice != -1) {
-                    productosActuales[indice] = productoActualizado.toUI()
-                    _productos.value = productosActuales
+                if (idx != -1) {
+                    lista[idx] = productoActualizado.toUI()
+                    _productos.value = lista
                 }
+                actualizarCategoriasDesdeProductos()
 
-                println("✅ Stock actualizado exitosamente para producto ID: $id")
                 true
             } else {
-                _error.value = "Error al actualizar el stock"
+                _error.value = "Error al actualizar stock"
                 false
             }
-
         } catch (e: Exception) {
             _error.value = "Error al actualizar stock: ${e.message}"
-            println("❌ Error al actualizar stock: ${e.message}")
             false
-        } finally {
-            _isLoading.value = false
-        }
+        } finally { _isLoading.value = false }
     }
 
     /**
@@ -258,25 +203,17 @@ class InventarioRepository {
             val eliminado = apiService.eliminarProducto(id)
 
             if (eliminado) {
-                // Eliminar el producto de la lista local
-                val productosActuales = _productos.value.toMutableList()
-                productosActuales.removeAll { it.id == id }
-                _productos.value = productosActuales
-
-                println("✅ Producto eliminado exitosamente ID: $id")
+                // Refrescar lista para respetar filtros de estado
+                cargarProductos(reset = true)
                 true
             } else {
-                _error.value = "Error al eliminar el producto"
+                _error.value = "Error al eliminar producto"
                 false
             }
-
         } catch (e: Exception) {
             _error.value = "Error al eliminar producto: ${e.message}"
-            println("❌ Error al eliminar producto: ${e.message}")
             false
-        } finally {
-            _isLoading.value = false
-        }
+        } finally { _isLoading.value = false }
     }
 
     /**
@@ -286,47 +223,36 @@ class InventarioRepository {
         try {
             _isLoading.value = true
             _error.value = null
-            val categoriasApi = apiService.obtenerCategorias()
-            _categorias.value = categoriasApi
-            println("✅ Categorías cargadas desde servidor: ${categoriasApi.size}")
+            val cats = apiService.obtenerCategorias()
+            _categorias.value = cats
+            _offlineMode.value = false
         } catch (e: Exception) {
+            actualizarCategoriasDesdeProductos()
             _error.value = "Error al cargar categorías: ${e.message}"
-            println("❌ Error al cargar categorías: ${e.message}")
-            _categorias.value = emptyList()
-        } finally {
-            _isLoading.value = false
-        }
+        } finally { _isLoading.value = false }
     }
 
     /**
      * Limpiar errores
      */
-    fun limpiarError() {
-        _error.value = null
-    }
+    fun limpiarError() { _error.value = null }
 
     /**
      * Liberar recursos
      */
-    fun close() {
-        apiService.close()
-    }
-
-    /**
-     * Establecer productos demo directamente (para modo offline)
-     */
-    fun setProductosDemo(productosDemo: List<ProductoUI>) {
-        println("🔄 Estableciendo ${productosDemo.size} productos demo en repositorio...")
-        _productos.value = productosDemo
-        _error.value = null
-        _isLoading.value = false
-        println("✅ Productos demo establecidos correctamente")
-    }
+    fun close() { apiService.close() }
 
     /**
      * Establecer categorías directamente (para actualización desde ViewModel)
      */
-    fun setCategorias(categorias: List<String>) {
-        _categorias.value = categorias
+    fun setCategorias(categorias: List<String>) { _categorias.value = categorias }
+
+    private fun actualizarCategoriasDesdeProductos() {
+        val categoriasFromProducts = _productos.value
+            .mapNotNull { it.categoria.takeIf { cat -> cat.isNotBlank() } }
+            .distinct()
+        if (categoriasFromProducts.isNotEmpty()) {
+            _categorias.value = categoriasFromProducts
+        }
     }
 }

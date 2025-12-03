@@ -12,6 +12,8 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.serialization.kotlinx.json.*
+import org.example.project.preferredBaseUrl
+import org.example.project.LOCAL_SERVER_URL
 
 @Composable
 fun TestConnectionScreen() {
@@ -27,12 +29,12 @@ fun TestConnectionScreen() {
         }
     }
 
-    // URLs para probar - actualizado para usar servidor universitario
+    // URLs actualizadas: túnel (preferred), localhost/emulador
     val urlsParaProbar = listOf(
-        "http://146.83.198.35:1609", // Servidor universitario (primario)
-        "http://192.168.1.24:8081",  // Tu IP Wi-Fi - puerto corregido
-        "http://10.0.2.2:8081",      // Para emulador Android
-        "http://localhost:8081"       // Para desarrollo local
+        preferredBaseUrl(),            // Túnel actual
+        LOCAL_SERVER_URL,              // Emulador / 10.0.2.2
+        "http://10.0.2.2:8080",       // Emulador explícito
+        "http://localhost:8080"       // Desktop local
     )
 
     Column(
@@ -55,11 +57,15 @@ fun TestConnectionScreen() {
 
                     for (url in urlsParaProbar) {
                         try {
-                            resultado += "🔍 Probando: $url\n"
-                            val response = httpClient.get("$url/test")
-                            val texto = response.bodyAsText()
-                            resultado += "✅ ÉXITO: $texto\n\n"
-                            break // Si funciona una, paramos
+                            resultado += "🔍 Probando: $url/health\n"
+                            val response = httpClient.get("$url/health")
+                            val code = response.status.value
+                            if (code in 200..299) {
+                                resultado += "✅ ÉXITO: HTTP $code\n\n"
+                                break
+                            } else {
+                                resultado += "❌ Código HTTP: $code\n\n"
+                            }
                         } catch (e: Exception) {
                             resultado += "❌ Falló: ${e.message}\n\n"
                         }

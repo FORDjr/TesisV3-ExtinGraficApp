@@ -1,0 +1,5 @@
+use_wsl = true
+python_path = "/usr/bin/python3"
+node_path   = "/usr/bin/node"
+shell_path  = "/usr/bin/bash"
+

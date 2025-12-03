@@ -11,14 +11,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.example.project.ui.viewmodel.LoginViewModel
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,6 +44,31 @@ fun LoginScreen(
     var apellido by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
+
+    val focusManager = LocalFocusManager.current
+    val focusNombre = remember { FocusRequester() }
+    val focusApellido = remember { FocusRequester() }
+    val focusEmail = remember { FocusRequester() }
+    val focusPassword = remember { FocusRequester() }
+    val focusConfirm = remember { FocusRequester() }
+
+    fun intentarAccion() {
+        scope.launch {
+            val success = if (isRegistering) {
+                // Validar confirmación de contraseña
+                if (password != confirmPassword) {
+                    return@launch
+                }
+                viewModel.register(email, password, nombre, apellido)
+            } else {
+                viewModel.login(email, password)
+            }
+
+            if (success) {
+                onLoginSuccess()
+            }
+        }
+    }
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -82,10 +110,19 @@ fun LoginScreen(
                         onValueChange = { nombre = it },
                         label = { Text("Nombre") },
                         placeholder = { Text("Tu nombre") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusNombre),
                         singleLine = true,
                         isError = uiState.errorMessage.isNotEmpty(),
-                        enabled = !uiState.isLoading
+                        enabled = !uiState.isLoading,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focusApellido.requestFocus() }
+                        )
                     )
 
                     OutlinedTextField(
@@ -93,24 +130,41 @@ fun LoginScreen(
                         onValueChange = { apellido = it },
                         label = { Text("Apellido") },
                         placeholder = { Text("Tu apellido") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusApellido),
                         singleLine = true,
                         isError = uiState.errorMessage.isNotEmpty(),
-                        enabled = !uiState.isLoading
+                        enabled = !uiState.isLoading,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focusEmail.requestFocus() }
+                        )
                     )
                 }
 
                 // Campo de email
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { 
+                    onValueChange = {
                         email = it
                         viewModel.clearError()
                     },
                     label = { Text("Email") },
                     placeholder = { Text("usuario@empresa.com") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusEmail),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusPassword.requestFocus() }
+                    ),
                     singleLine = true,
                     isError = uiState.errorMessage.isNotEmpty(),
                     enabled = !uiState.isLoading
@@ -119,15 +173,24 @@ fun LoginScreen(
                 // Campo de contraseña
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { 
+                    onValueChange = {
                         password = it
                         viewModel.clearError()
                     },
                     label = { Text("Contraseña") },
                     placeholder = { Text(if (isRegistering) "Mínimo 6 caracteres" else "Ingresa tu contraseña") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusPassword),
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = if (isRegistering) ImeAction.Next else ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { if (isRegistering) focusConfirm.requestFocus() else intentarAccion() },
+                        onDone = { intentarAccion() }
+                    ),
                     singleLine = true,
                     isError = uiState.errorMessage.isNotEmpty(),
                     enabled = !uiState.isLoading,
@@ -145,15 +208,23 @@ fun LoginScreen(
                 if (isRegistering) {
                     OutlinedTextField(
                         value = confirmPassword,
-                        onValueChange = { 
+                        onValueChange = {
                             confirmPassword = it
                             viewModel.clearError()
                         },
                         label = { Text("Confirmar contraseña") },
                         placeholder = { Text("Confirma tu contraseña") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusConfirm),
                         visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = { intentarAccion() }
+                        ),
                         singleLine = true,
                         isError = uiState.errorMessage.isNotEmpty() || (confirmPassword.isNotEmpty() && password != confirmPassword),
                         enabled = !uiState.isLoading,
@@ -191,21 +262,7 @@ fun LoginScreen(
                 // Botón principal (Login o Registro)
                 Button(
                     onClick = {
-                        scope.launch {
-                            val success = if (isRegistering) {
-                                // Validar confirmación de contraseña
-                                if (password != confirmPassword) {
-                                    return@launch
-                                }
-                                viewModel.register(email, password, nombre, apellido)
-                            } else {
-                                viewModel.login(email, password)
-                            }
-                            
-                            if (success) {
-                                onLoginSuccess()
-                            }
-                        }
+                        intentarAccion()
                     },
                     modifier = Modifier
                         .fillMaxWidth()

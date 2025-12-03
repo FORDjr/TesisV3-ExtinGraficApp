@@ -1,4 +1,4 @@
-package org.example.project.ui.components
+﻿package org.example.project.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,8 +20,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.example.project.ui.theme.ExtintorColors
+import org.example.project.ui.theme.ExtintorDefaults
+import org.example.project.ui.theme.ExtintorElevation
 
-// Botón principal con estilo extintor elegante
+// BotÃ³n principal con estilo extintor elegante
 @Composable
 fun ExtintorButton(
     text: String,
@@ -190,8 +192,8 @@ fun ExtintorTextField(
                 errorBorderColor = ExtintorColors.Error,
                 errorLabelColor = ExtintorColors.Error,
                 // ESTO ES LO IMPORTANTE: Color del texto que escribes
-                focusedTextColor = Color.Black,  // Negro cuando escribes y está enfocado
-                unfocusedTextColor = Color.Black  // Negro cuando no está enfocado
+                focusedTextColor = Color.Black,  // Negro cuando escribes y estÃ¡ enfocado
+                unfocusedTextColor = Color.Black  // Negro cuando no estÃ¡ enfocado
             ),
             shape = RoundedCornerShape(12.dp)
         )
@@ -359,3 +361,4 @@ fun ExtintorGradientHeader(
         }
     }
 }
+

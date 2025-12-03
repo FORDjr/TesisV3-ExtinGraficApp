@@ -1,59 +1,68 @@
-package org.example.project.ui.navigation
+﻿package org.example.project.ui.navigation
 
-import androidx.compose.material3.Icon
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Dashboard
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material.icons.outlined.Verified
+import androidx.compose.ui.graphics.vector.ImageVector
 
-// Elementos del menú principal sin dependencias de Material Icons
 data class MenuItem(
     val title: String,
     val route: String,
-    val icon: @Composable () -> Unit, // Cambio a Composable para usar emojis
-    val description: String = ""
+    val icon: ImageVector,
+    val subtitle: String? = null
 )
-
-// Función helper para crear iconos con emojis
-@Composable
-fun EmojiIcon(emoji: String) {
-    androidx.compose.material3.Text(
-        text = emoji,
-        style = MaterialTheme.typography.titleMedium
-    )
-}
 
 object NavigationItems {
     val mainMenuItems = listOf(
         MenuItem(
             title = "Dashboard",
             route = "dashboard",
-            icon = { EmojiIcon("🏠") },
-            description = "Vista general del negocio"
+            icon = Icons.Outlined.Dashboard,
+            subtitle = "Resumen general"
         ),
         MenuItem(
             title = "Ventas",
             route = "ventas",
-            icon = { EmojiIcon("🛒") },
-            description = "Registro de ventas"
+            icon = Icons.Outlined.ShoppingCart,
+            subtitle = "Gestor de ventas"
         ),
         MenuItem(
             title = "Inventario",
             route = "inventario",
-            icon = { EmojiIcon("📦") },
-            description = "Gestión de productos"
+            icon = Icons.Outlined.Inventory2,
+            subtitle = "Stock y productos"
+        ),
+        MenuItem(
+            title = "Kardex",
+            route = "kardex",
+            icon = Icons.Outlined.History,
+            subtitle = "Movimientos y exportes"
+        ),
+        MenuItem(
+            title = "Mantencion",
+            route = "maintenance",
+            icon = Icons.Outlined.Verified,
+            subtitle = "Taller y terreno"
         ),
         MenuItem(
             title = "Calendario",
             route = "calendario",
-            icon = { EmojiIcon("📅") },
-            description = "Eventos y citas"
+            icon = Icons.Outlined.CalendarToday,
+            subtitle = "Eventos y agenda"
         ),
         MenuItem(
-            title = "Diagnóstico",
+            title = "Diagnostico",
             route = "diagnostico",
-            icon = { EmojiIcon("🔧") },
-            description = "Herramientas de diagnóstico de red"
+            icon = Icons.Outlined.Analytics,
+            subtitle = "Salud del sistema"
         )
     )
 
@@ -61,8 +70,20 @@ object NavigationItems {
         MenuItem(
             title = "Perfil",
             route = "profile",
-            icon = { EmojiIcon("👤") },
-            description = "Configuración de usuario"
+            icon = Icons.Outlined.AccountCircle,
+            subtitle = "Datos del usuario"
+        ),
+        MenuItem(
+            title = "Configuracion",
+            route = "settings",
+            icon = Icons.Outlined.Settings,
+            subtitle = "Preferencias"
         )
+    )
+
+    val logout = MenuItem(
+        title = "Cerrar sesion",
+        route = "logout",
+        icon = Icons.AutoMirrored.Outlined.Logout
     )
 }

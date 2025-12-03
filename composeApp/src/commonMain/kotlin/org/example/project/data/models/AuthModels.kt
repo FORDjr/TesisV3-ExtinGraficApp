@@ -25,7 +25,9 @@ data class UsuarioResponse(
     val apellido: String,
     val rol: String,
     val activo: Boolean,
-    val fechaCreacion: String
+    val fechaCreacion: String,
+    val intentosFallidos: Int = 0,
+    val bloqueadoHasta: String? = null
 )
 
 @Serializable

@@ -5,9 +5,26 @@ services:
     ports:
       - "8080:8080"
     environment:
-      DB_HOST: 146.83.198.35      
+      DB_HOST: db
       DB_PORT: 5432
       DB_NAME: dpozas_bd
       DB_USER: dpozas
       DB_PASSWORD: diego2025
+      DB_PASS: diego2025
     restart: unless-stopped
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: dpozas_bd
+      POSTGRES_USER: dpozas
+      POSTGRES_PASSWORD: diego2025
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

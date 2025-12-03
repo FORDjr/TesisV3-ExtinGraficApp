@@ -3,16 +3,24 @@ package org.example.project.services
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.neq
 import org.example.project.models.*
-import java.math.BigDecimal
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.DateTimePeriod
+import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.plus
 
 class VentasService {
+    private val movimientosService = MovimientosInventarioService()
 
     fun crearVenta(request: VentaRequest): VentaResponse = transaction {
         val ahora = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+        val descuento = request.descuento?.coerceAtLeast(0) ?: 0L
 
         // Validar que todos los productos existen y tienen stock suficiente
         request.productos.forEach { productoReq ->
@@ -28,17 +36,21 @@ class VentasService {
         val total = request.productos.sumOf {
             val producto = Producto.findById(it.id)
                 ?: throw IllegalArgumentException("Producto con ID ${it.id} no encontrado")
-            BigDecimal.valueOf(producto.precio.toDouble() * it.cantidad)
+            producto.precio * it.cantidad
         }
+        val totalConDescuento = (total - descuento).coerceAtLeast(0)
 
         // Crear la venta
         val venta = Venta.new {
+            numero = generarNumeroCorrelativo()
             cliente = request.cliente
             fecha = ahora
-            this.total = total
+            this.total = totalConDescuento
+            this.descuento = descuento
             estado = EstadoVenta.PENDIENTE
             metodoPago = request.metodoPago
             observaciones = request.observaciones
+            vendedor = request.vendedorId?.let { Usuario.findById(it) }
             fechaCreacion = ahora
             fechaActualizacion = ahora
         }
@@ -46,40 +58,41 @@ class VentasService {
         // Crear los productos de la venta y actualizar stock
         val productosVenta = request.productos.map { productoReq ->
             val producto = Producto.findById(productoReq.id)!!
-            val subtotal = BigDecimal.valueOf(producto.precio.toDouble() * productoReq.cantidad)
+            val subtotal = producto.precio * productoReq.cantidad
 
             // Crear registro en venta_productos
             VentaProducto.new {
                 ventaId = venta.id
                 productoId = producto.id
                 cantidad = productoReq.cantidad
-                precio = BigDecimal.valueOf(producto.precio.toDouble())
+                precio = producto.precio
                 this.subtotal = subtotal
             }
 
-            // Actualizar stock del producto
-            producto.cantidad -= productoReq.cantidad
-            producto.fechaActualizacion = ahora
+            // Registrar movimiento de salida
+            movimientosService.crearMovimiento(
+                CrearMovimientoInventarioRequest(
+                    productoId = producto.id.value,
+                    tipo = TipoMovimientoInventario.SALIDA,
+                    cantidad = productoReq.cantidad,
+                    motivo = "Venta ${venta.numero}",
+                    documento = venta.numero,
+                    usuarioId = request.vendedorId,
+                    observaciones = request.observaciones,
+                    fechaRegistro = ahora.toString()
+                )
+            )
 
             ProductoVentaResponse(
                 id = producto.id.value,
                 nombre = producto.nombre,
                 cantidad = productoReq.cantidad,
-                precio = producto.precio.toDouble(),
-                subtotal = subtotal.toDouble()
+                precio = producto.precio,
+                subtotal = subtotal
             )
         }
 
-        VentaResponse(
-            id = "V${venta.id.value.toString().padStart(3, '0')}",
-            cliente = venta.cliente,
-            fecha = venta.fecha.toString() + "Z",
-            total = venta.total.toDouble(),
-            estado = venta.estado,
-            metodoPago = venta.metodoPago,
-            observaciones = venta.observaciones,
-            productos = productosVenta
-        )
+        venta.toResponse(productosVenta)
     }
 
     fun obtenerTodasLasVentas(): List<VentaResponse> = transaction {
@@ -90,22 +103,19 @@ class VentasService {
                     id = producto.id.value,
                     nombre = producto.nombre,
                     cantidad = vp.cantidad,
-                    precio = vp.precio.toDouble(),
-                    subtotal = vp.subtotal.toDouble()
+                    precio = vp.precio,
+                    subtotal = vp.subtotal
                 )
             }
 
-            VentaResponse(
-                id = "V${venta.id.value.toString().padStart(3, '0')}",
-                cliente = venta.cliente,
-                fecha = venta.fecha.toString() + "Z",
-                total = venta.total.toDouble(),
-                estado = venta.estado,
-                metodoPago = venta.metodoPago,
-                observaciones = venta.observaciones,
-                productos = productos
-            )
+            venta.toResponse(productos)
         }
+    }
+
+    fun obtenerVentasConMetricas(): VentasListResponse {
+        val ventas = obtenerTodasLasVentas()
+        val metricas = obtenerMetricas()
+        return VentasListResponse(ventas = ventas, metricas = metricas)
     }
 
     fun obtenerVentaPorId(ventaId: String): VentaResponse? = transaction {
@@ -121,21 +131,12 @@ class VentasService {
                 id = producto.id.value,
                 nombre = producto.nombre,
                 cantidad = vp.cantidad,
-                precio = vp.precio.toDouble(),
-                subtotal = vp.subtotal.toDouble()
+                precio = vp.precio,
+                subtotal = vp.subtotal
             )
         }
 
-        VentaResponse(
-            id = "V${venta.id.value.toString().padStart(3, '0')}",
-            cliente = venta.cliente,
-            fecha = venta.fecha.toString() + "Z",
-            total = venta.total.toDouble(),
-            estado = venta.estado,
-            metodoPago = venta.metodoPago,
-            observaciones = venta.observaciones,
-            productos = productos
-        )
+        venta.toResponse(productos)
     }
 
     fun actualizarEstadoVenta(ventaId: String, nuevoEstado: EstadoVenta): VentaResponse = transaction {
@@ -145,15 +146,25 @@ class VentasService {
         val venta = Venta.findById(numeroId)
             ?: throw IllegalArgumentException("Venta no encontrada")
 
+        val estadoAnterior = venta.estado
         venta.estado = nuevoEstado
         venta.fechaActualizacion = Clock.System.now().toLocalDateTime(TimeZone.UTC)
 
         // Si se cancela la venta, restaurar el stock
-        if (nuevoEstado == EstadoVenta.CANCELADA && venta.estado != EstadoVenta.CANCELADA) {
+        if (nuevoEstado == EstadoVenta.CANCELADA && estadoAnterior != EstadoVenta.CANCELADA) {
             VentaProducto.find { VentaProductos.ventaId eq venta.id }.forEach { vp ->
                 val producto = Producto.findById(vp.productoId)!!
-                producto.cantidad += vp.cantidad
-                producto.fechaActualizacion = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+                movimientosService.crearMovimiento(
+                    CrearMovimientoInventarioRequest(
+                        productoId = producto.id.value,
+                        tipo = TipoMovimientoInventario.ENTRADA,
+                        cantidad = vp.cantidad,
+                        motivo = "Reverso venta ${venta.numero}",
+                        documento = venta.numero,
+                        usuarioId = venta.vendedor?.id?.value,
+                        fechaRegistro = Clock.System.now().toLocalDateTime(TimeZone.UTC).toString()
+                    )
+                )
             }
         }
 
@@ -161,35 +172,64 @@ class VentasService {
     }
 
     fun obtenerMetricas(): MetricasVentasResponse = transaction {
-        // Simplificado temporalmente - implementación completa después
-        try {
-            val ventas = Venta.find { Ventas.estado neq EstadoVenta.CANCELADA }
-            val totalVentas = ventas.sumOf { it.total.toDouble() }
-            val totalOrdenes = ventas.count().toInt()
-            val ticketPromedio = if (totalOrdenes > 0) totalVentas / totalOrdenes else 0.0
+        val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+        val startOfDay = LocalDateTime(now.year, now.monthNumber, now.dayOfMonth, 0, 0, 0)
+        val endOfDay = startOfDay.plusDate(DatePeriod(days = 1))
+        val startOfMonth = LocalDateTime(now.year, now.monthNumber, 1, 0, 0, 0)
+        val startNextMonth = startOfMonth.plusDate(DatePeriod(months = 1))
 
-            MetricasVentasResponse(
-                ventasHoy = totalVentas,
-                ordenesHoy = totalOrdenes,
-                ticketPromedio = ticketPromedio,
-                ventasMes = totalVentas,
-                crecimientoVentasHoy = 12.0,
-                crecimientoOrdenes = 5.0,
-                crecimientoTicket = 8.0,
-                crecimientoMes = 20.0
-            )
-        } catch (e: Exception) {
-            // Fallback a datos de ejemplo
-            MetricasVentasResponse(
-                ventasHoy = 2350.0,
-                ordenesHoy = 23,
-                ticketPromedio = 102.17,
-                ventasMes = 45231.0,
-                crecimientoVentasHoy = 12.0,
-                crecimientoOrdenes = 5.0,
-                crecimientoTicket = 8.0,
-                crecimientoMes = 20.0
-            )
+        val hoyQuery = Venta.find {
+            (Ventas.estado neq EstadoVenta.CANCELADA) and
+                (Ventas.fecha greaterEq startOfDay) and
+                (Ventas.fecha less endOfDay)
         }
+        val mesQuery = Venta.find {
+            (Ventas.estado neq EstadoVenta.CANCELADA) and
+                (Ventas.fecha greaterEq startOfMonth) and
+                (Ventas.fecha less startNextMonth)
+        }
+
+        val ventasHoy = hoyQuery.sumOf { it.total }
+        val ventasMes = mesQuery.sumOf { it.total }
+        val ordenesHoy = hoyQuery.count().toInt()
+        val ticketPromedio = if (ordenesHoy > 0) ventasHoy / ordenesHoy else ventasHoy
+
+        MetricasVentasResponse(
+            ventasHoy = ventasHoy,
+            ordenesHoy = ordenesHoy,
+            ticketPromedio = ticketPromedio,
+            ventasMes = ventasMes,
+            crecimientoVentasHoy = 0,
+            crecimientoOrdenes = 0,
+            crecimientoTicket = 0,
+            crecimientoMes = 0
+        )
     }
 }
+
+private fun LocalDateTime.plusDate(period: DatePeriod): LocalDateTime =
+    LocalDateTime(this.date.plus(period), this.time)
+
+private fun generarNumeroCorrelativo(): String {
+    val ultimo = Venta.all().orderBy(Ventas.id to SortOrder.DESC).limit(1).firstOrNull()
+    val ultimoCorrelativo = ultimo?.numero?.removePrefix("V")?.toIntOrNull()
+        ?: ultimo?.id?.value
+        ?: 0
+    val siguiente = ultimoCorrelativo + 1
+    return "V${siguiente.toString().padStart(5, '0')}"
+}
+
+private fun Venta.toResponse(productos: List<ProductoVentaResponse>): VentaResponse =
+    VentaResponse(
+        id = numero,
+        numero = numero,
+        cliente = cliente,
+        fecha = fecha.toString() + "Z",
+        total = total,
+        descuento = descuento,
+        estado = estado,
+        metodoPago = metodoPago,
+        vendedorId = vendedor?.id?.value,
+        observaciones = observaciones,
+        productos = productos
+    )

@@ -37,24 +37,35 @@ dependencies {
     implementation(libs.ktor.serverNetty)
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.ktor.server.content.negotiation)
+    // Seguridad / observabilidad
+    implementation(libs.ktor.server.cors)
+    implementation(libs.ktor.server.call.logging)
+    implementation(libs.ktor.server.call.id)
     implementation(libs.exposed.core)
     implementation(libs.exposed.dao)
     implementation(libs.exposed.jdbc)
     implementation(libs.exposed.kotlin.datetime)
     implementation(libs.postgresql)
     implementation(libs.hikaricp)
+    implementation("com.github.librepdf:openpdf:1.3.39")
     testImplementation(libs.ktor.serverTestHost)
     testImplementation(libs.kotlin.testJunit)
+    testImplementation("com.h2database:h2:2.2.224")
 }
 
 // Configure ShadowJar
 tasks.named<ShadowJar>("shadowJar") {
     archiveBaseName.set("server")
     archiveClassifier.set("")
-    archiveVersion.set(project.version.toString())
+    archiveVersion.set("")
     mergeServiceFiles()
-    manifest {
-        attributes(mapOf("Main-Class" to application.mainClass.get()))
+    manifest { attributes(mapOf("Main-Class" to application.mainClass.get())) }
+    doLast {
+        val jar = archiveFile.get().asFile
+        val fixed = jar.resolveSibling("server.jar")
+        if (fixed.exists()) fixed.delete()
+        jar.copyTo(fixed, overwrite = true)
+        println("Generado también: ${fixed.name}")
     }
 }
 

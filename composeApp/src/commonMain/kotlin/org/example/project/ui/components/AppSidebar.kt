@@ -1,26 +1,42 @@
-package org.example.project.ui.components
+﻿package org.example.project.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import org.example.project.data.auth.AuthManager
 import org.example.project.ui.navigation.MenuItem
 import org.example.project.ui.navigation.NavigationItems
-import org.example.project.ui.theme.ExtintorColors
-import org.example.project.data.auth.AuthManager
+import androidx.compose.foundation.layout.width
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppSidebar(
     selectedRoute: String,
@@ -28,161 +44,147 @@ fun AppSidebar(
     onLogout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    // Obtener datos del usuario actual
-    val currentUser = AuthManager.getCurrentUser()
+    val authState by AuthManager.authState.collectAsState()
 
     Surface(
         modifier = modifier.fillMaxHeight(),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp
+        tonalElevation = 0.dp
     ) {
-        Column {
-            // Header del Sidebar
-            SidebarHeader()
-
-            HorizontalDivider() // Corregido: Divider() está deprecado
-
-            // Contenido principal del menú
+        Column(modifier = Modifier.fillMaxHeight()) {
+            SidebarHeader(userName = authState.userName, userEmail = authState.userEmail)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Sección principal
                 item {
-                    SidebarGroupLabel("Navegación Principal")
-                    Spacer(modifier = Modifier.height(8.dp))
+                    SidebarSectionLabel(text = "Principal")
                 }
-
                 items(NavigationItems.mainMenuItems) { item ->
                     SidebarMenuItem(
                         item = item,
-                        isSelected = selectedRoute == item.route,
+                        selected = selectedRoute == item.route,
                         onClick = { onNavigate(item.route) }
                     )
                 }
-
                 item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    SidebarGroupLabel("Cuenta")
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SidebarSectionLabel(text = "Cuenta")
                 }
-
                 items(NavigationItems.userMenuItems) { item ->
                     SidebarMenuItem(
                         item = item,
-                        isSelected = selectedRoute == item.route,
+                        selected = selectedRoute == item.route,
                         onClick = { onNavigate(item.route) }
                     )
                 }
             }
-
-            HorizontalDivider() // Corregido: Divider() está deprecado
-
-            // Footer con usuario
-            SidebarFooter(onLogout = onLogout)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            SidebarFooter(
+                userName = authState.userName,
+                userEmail = authState.userEmail,
+                onLogout = onLogout
+            )
         }
     }
 }
 
 @Composable
-private fun SidebarHeader() {
+private fun SidebarHeader(
+    userName: String,
+    userEmail: String
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(20.dp),
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+            .padding(horizontal = 24.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Logo con gradiente de extintor
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(
-                    brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                        colors = listOf(
-                            ExtintorColors.ExtintorRed,
-                            ExtintorColors.ExtintorRedLight
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
+        Surface(
+            modifier = Modifier.size(72.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
         ) {
-            Text(
-                text = "🧯", // Emoji de fuego como alternativa
-                style = MaterialTheme.typography.headlineLarge,
-                color = ExtintorColors.PureWhite
-            )
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = "EG",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
+        Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "ExtinGrafic",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = ExtintorColors.PureWhite
+            text = if (userName.isNotBlank()) userName else "ExtinGrafic",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
         )
-
         Text(
-            text = "Sistema de Gestión",
-            style = MaterialTheme.typography.bodyMedium,
-            color = ExtintorColors.Gray400
+            text = if (userEmail.isNotBlank()) userEmail else "soporte@extingrafic.cl",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+@Composable
+private fun SidebarSectionLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)
+    )
 }
 
 @Composable
 private fun SidebarMenuItem(
     item: MenuItem,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    selected: Boolean,
+    onClick: () -> Unit
 ) {
-    val containerColor = if (isSelected) {
-        MaterialTheme.colorScheme.primaryContainer
+    val background = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
     } else {
-        Color.Transparent
+        MaterialTheme.colorScheme.surface
     }
-
-    val contentColor = if (isSelected) {
-        MaterialTheme.colorScheme.onPrimaryContainer
+    val border = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+    } else {
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+    }
+    val contentColor = if (selected) {
+        MaterialTheme.colorScheme.primary
     } else {
         MaterialTheme.colorScheme.onSurface
     }
 
     Surface(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(18.dp))
             .clickable { onClick() },
-        color = containerColor,
-        contentColor = contentColor
+        color = background,
+        border = BorderStroke(1.dp, border),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Cambio: usar el icono composable en lugar de Icon
-            item.icon()
-
+            SidebarIcon(image = item.icon, tint = contentColor)
             Spacer(modifier = Modifier.width(12.dp))
-
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
-                )
-
-                if (item.description.isNotEmpty()) {
-                    Text(
-                        text = item.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Text(text = item.title, style = MaterialTheme.typography.bodyMedium, color = contentColor)
+                item.subtitle?.let {
+                    Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -190,121 +192,63 @@ private fun SidebarMenuItem(
 }
 
 @Composable
-private fun SidebarGroupLabel(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 12.dp)
-    )
+private fun SidebarIcon(image: ImageVector, tint: Color) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(tint.copy(alpha = 0.08f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(imageVector = image, contentDescription = null, tint = tint)
+    }
 }
 
 @Composable
-private fun SidebarFooter(onLogout: () -> Unit) {
-    var showUserMenu by remember { mutableStateOf(false) }
-
-    // Obtener datos del usuario actual usando los métodos correctos del AuthManager
-    val authState by AuthManager.authState.collectAsState()
-
-    Surface(
+private fun SidebarFooter(
+    userName: String,
+    userEmail: String,
+    onLogout: () -> Unit
+) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { showUserMenu = !showUserMenu },
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        Row(
+        Text(
+            text = "Sesion",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .clip(RoundedCornerShape(16.dp))
+                .clickable { onLogout() },
+            color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp
         ) {
-            // Avatar del usuario con iniciales
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(
-                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                            colors = listOf(
-                                ExtintorColors.ExtintorRed,
-                                ExtintorColors.ExtintorRedLight
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (authState.isAuthenticated && authState.userName.isNotBlank()) {
-                        // Extraer iniciales del nombre completo
-                        val names = authState.userName.split(" ")
-                        if (names.size >= 2) {
-                            "${names[0].first().uppercase()}${names[1].first().uppercase()}"
-                        } else {
-                            authState.userName.first().uppercase()
-                        }
-                    } else {
-                        "👤"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = ExtintorColors.PureWhite,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (authState.isAuthenticated && authState.userName.isNotBlank()) {
-                        authState.userName
-                    } else {
-                        "Usuario"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = if (authState.isAuthenticated && authState.userEmail.isNotBlank()) {
-                        authState.userEmail
-                    } else {
-                        "usuario@empresa.com"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Text(
-                text = if (showUserMenu) "▲" else "▼", // Flechas simples
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-
-    // Menú desplegable del usuario (simplificado por ahora)
-    if (showUserMenu) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onLogout() }
-                        .padding(8.dp)
-                ) {
+                SidebarIcon(image = NavigationItems.logout.icon, tint = MaterialTheme.colorScheme.error)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "🚪", // Emoji de salida
+                        text = "Cerrar sesion",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Cerrar sesión",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
+                        text = if (userEmail.isNotBlank()) userEmail else "Salir de la cuenta",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
                     )
                 }
             }

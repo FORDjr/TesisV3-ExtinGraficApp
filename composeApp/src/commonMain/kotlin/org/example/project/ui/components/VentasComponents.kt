@@ -1,4 +1,4 @@
-package org.example.project.ui.components
+﻿package org.example.project.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,16 +10,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.example.project.data.models.*
 import org.example.project.data.model.Producto
+import org.example.project.utils.Formatters.formatPesos
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Locale
+import org.example.project.ui.theme.ExtintorDefaults
+import org.example.project.ui.theme.ExtintorElevation
 
 @Composable
 fun MetricaCard(
@@ -72,7 +74,7 @@ fun MetricaCard(
             Text(
                 text = cambio,
                 fontSize = 11.sp,
-                color = if (esPositivo) Color.Green else Color.Red,
+                color = if (esPositivo) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -127,7 +129,7 @@ fun VentaItemCard(
                     EstadoBadge(estado = venta.estado)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "$${venta.total}",
+                        text = formatPesos(venta.total),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -153,21 +155,33 @@ fun VentaItemCard(
 
 @Composable
 fun EstadoBadge(estado: EstadoVenta) {
-    val (color, text) = when (estado) {
-        EstadoVenta.COMPLETADA -> Pair(Color(0xFF4CAF50), "Completada")
-        EstadoVenta.PENDIENTE -> Pair(Color(0xFFFF9800), "Pendiente")
-        EstadoVenta.CANCELADA -> Pair(Color(0xFFF44336), "Cancelada")
+    val (containerColor, contentColor, label) = when (estado) {
+        EstadoVenta.COMPLETADA -> Triple(
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+            MaterialTheme.colorScheme.primary,
+            "Completada"
+        )
+        EstadoVenta.PENDIENTE -> Triple(
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurfaceVariant,
+            "Pendiente"
+        )
+        EstadoVenta.CANCELADA -> Triple(
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.onErrorContainer,
+            "Cancelada"
+        )
     }
 
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = color.copy(alpha = 0.1f),
+        color = containerColor,
         modifier = Modifier.padding(2.dp)
     ) {
         Text(
-            text = text,
+            text = label,
             fontSize = 10.sp,
-            color = color,
+            color = contentColor,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
         )
@@ -187,7 +201,7 @@ fun FiltrosVentasBar(
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Búsqueda por cliente - CORREGIDO CON COLOR EXPLÍCITO
+        // Search by client
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchChange,
@@ -199,15 +213,16 @@ fun FiltrosVentasBar(
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 focusedLabelColor = MaterialTheme.colorScheme.primary,
+                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 cursorColor = MaterialTheme.colorScheme.primary,
-                // TEXTO EN NEGRO DIRECTO - BÚSQUEDA + COLORES ADICIONALES
-                focusedTextColor = Color.Black,
-                unfocusedTextColor = Color.Black,
-                focusedPlaceholderColor = Color.Gray,
-                unfocusedPlaceholderColor = Color.Gray,
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface
             )
         )
 
@@ -216,7 +231,7 @@ fun FiltrosVentasBar(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Filtro de estado - CORREGIDO CON COLOR EXPLÍCITO
+            // Status filter
             var expandedEstado by remember { mutableStateOf(false) }
 
             Box(modifier = Modifier.weight(1f)) {
@@ -232,14 +247,18 @@ fun FiltrosVentasBar(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary,
-                        // TEXTO EN NEGRO DIRECTO - ESTADO + COLORES ADICIONALES
-                        focusedTextColor = Color.Black,
-                        unfocusedTextColor = Color.Black,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
-                    )
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                cursorColor = MaterialTheme.colorScheme.primary,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+            )
                 )
 
                 DropdownMenu(
@@ -265,7 +284,7 @@ fun FiltrosVentasBar(
                 }
             }
 
-            // Filtro de fecha - CORREGIDO CON COLOR EXPLÍCITO
+            // Date filter
             var expandedFecha by remember { mutableStateOf(false) }
 
             Box(modifier = Modifier.weight(1f)) {
@@ -286,14 +305,18 @@ fun FiltrosVentasBar(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary,
-                        // TEXTO EN NEGRO DIRECTO - FECHA + COLORES ADICIONALES
-                        focusedTextColor = Color.Black,
-                        unfocusedTextColor = Color.Black,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
-                    )
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                cursorColor = MaterialTheme.colorScheme.primary,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+            )
                 )
 
                 DropdownMenu(
@@ -391,7 +414,7 @@ fun ProductoDisponibleCard(
                     Text(
                         text = "Stock: ${producto.stock}",
                         fontSize = 12.sp,
-                        color = if (producto.stock > 0) Color.Green else Color.Red
+                        color = if (producto.stock > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                     )
                 }
             }
@@ -464,7 +487,7 @@ fun ProductoEnVentaCard(
                     Text(
                         text = "Stock: ${itemVenta.stock}",
                         fontSize = 12.sp,
-                        color = if (itemVenta.stock > 0) Color.Green else Color.Red
+                        color = if (itemVenta.stock > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                     )
                 }
             }
@@ -522,7 +545,7 @@ fun MetodoPagoSelector(
                         MetodoPago.EFECTIVO -> "Efectivo"
                         MetodoPago.TARJETA -> "Tarjeta"
                         MetodoPago.TRANSFERENCIA -> "Transferencia"
-                        MetodoPago.CREDITO -> "Crédito"
+                        MetodoPago.CREDITO -> "Credito"
                     },
                     fontSize = 16.sp
                 )
@@ -542,3 +565,7 @@ private fun formatearFecha(fechaString: String): String {
         fechaString
     }
 }
+
+
+
+

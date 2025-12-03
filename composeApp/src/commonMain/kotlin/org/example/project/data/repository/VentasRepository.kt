@@ -8,7 +8,7 @@ import org.example.project.data.model.Producto
 
 class VentasRepository(private val apiService: VentasApiService) {
 
-    fun obtenerVentas(): Flow<Result<List<Venta>>> = flow {
+    fun obtenerVentasResumen(): Flow<Result<VentasListResponse>> = flow {
         emit(apiService.obtenerVentas())
     }
 
@@ -32,18 +32,16 @@ class VentasRepository(private val apiService: VentasApiService) {
         emit(apiService.obtenerProductosParaVenta())
     }
 
-
-
     fun obtenerMetricasEjemplo(): MetricasVentas {
         return MetricasVentas(
-            ventasHoy = 2350.0,
+            ventasHoy = 235000L,
             ordenesHoy = 23,
-            ticketPromedio = 102.17,
-            ventasMes = 45231.0,
-            crecimientoVentasHoy = 12.0,
-            crecimientoOrdenes = 5.0,
-            crecimientoTicket = 8.0,
-            crecimientoMes = 20.0
+            ticketPromedio = 102000L,
+            ventasMes = 4523100L,
+            crecimientoVentasHoy = 12,
+            crecimientoOrdenes = 5,
+            crecimientoTicket = 8,
+            crecimientoMes = 20
         )
     }
 }

@@ -7,182 +7,204 @@ import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import io.ktor.client.statement.bodyAsText
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.builtins.ListSerializer
 import org.example.project.data.models.*
+import org.example.project.data.model.InventarioPage
 import org.example.project.data.model.Producto
+import org.example.project.LOCAL_SERVER_URL
+import org.example.project.preferredBaseUrl
+import kotlin.math.roundToLong
 
 class VentasApiService {
     companion object {
-        // Usar la misma configuración que InventarioApiService
-        private const val UNIVERSITY_URL = "http://146.83.198.35:1609"
-        private const val PRIMARY_URL = UNIVERSITY_URL
-        private const val LOCALHOST_URL = "http://localhost:8080"
-        private const val EMULATOR_URL = "http://10.0.2.2:8080"
         private const val API_PATH_VENTAS = "/api/ventas"
         private const val API_PATH_INVENTARIO = "/api/inventario"
+        private const val EMULATOR_URL = "http://10.0.2.2:8080"
         private val CONNECTION_URLS = listOf(
-            PRIMARY_URL,
-            LOCALHOST_URL,
+            preferredBaseUrl(),
+            LOCAL_SERVER_URL,
             EMULATOR_URL
         )
-        val json = Json {
-            prettyPrint = true
-            isLenient = true
-            ignoreUnknownKeys = true
-        }
+        val json = Json { prettyPrint = true; isLenient = true; ignoreUnknownKeys = true }
     }
 
     private val httpClient = HttpClient {
-        install(ContentNegotiation) {
-            json(VentasApiService.json)
+        install(ContentNegotiation) { json(VentasApiService.json) }
+        install(Logging) { logger = Logger.DEFAULT; level = LogLevel.INFO }
+    }
+
+    private fun primaryUrls(): List<String> = CONNECTION_URLS
+
+    private suspend fun <T> firstSuccessful(block: suspend (String) -> T): Result<T> {
+        val errors = mutableListOf<String>()
+        for (base in primaryUrls()) {
+            try {
+                return Result.success(block(base))
+            } catch (e: Exception) {
+                errors += "$base -> ${e.message ?: "Error desconocido"}"
+            }
         }
-        install(Logging) {
-            logger = Logger.DEFAULT
-            level = LogLevel.INFO
+        return Result.failure(Exception(errors.joinToString(" | ")))
+    }
+
+    suspend fun obtenerVentas(): Result<VentasListResponse> = firstSuccessful { base ->
+        val payload = httpClient.get(base + API_PATH_VENTAS).bodyAsText()
+        decodeVentasList(payload)
+    }
+
+    suspend fun obtenerMetricas(): Result<MetricasVentas> = firstSuccessful { base ->
+        val payload = httpClient.get(base + API_PATH_VENTAS + "/metricas").bodyAsText()
+        decodeMetricas(payload)
+    }
+
+    suspend fun crearVenta(nuevaVenta: NuevaVentaRequest): Result<Venta> = firstSuccessful { base ->
+        val resp = httpClient.post(base + API_PATH_VENTAS) {
+            contentType(ContentType.Application.Json)
+            setBody(nuevaVenta)
         }
-    }
-
-    // Función auxiliar para probar conexión con múltiples URLs
-    private suspend fun tryRequestVentas(path: String): Result<String> {
-        val url = companionObjectWorkingUrl()
-        return try {
-            val response = httpClient.get("$url$API_PATH_VENTAS$path")
-            if (response.status.isSuccess()) {
-                Result.success(response.body())
-            } else {
-                Result.failure(Exception("Error HTTP: ${response.status}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(Exception("Error de conexión: ${e.message}"))
-        }
-    }
-
-    private suspend fun tryRequestInventario(path: String): Result<String> {
-        val url = companionObjectWorkingUrl()
-        return try {
-            val response = httpClient.get("$url$API_PATH_INVENTARIO$path")
-            if (response.status.isSuccess()) {
-                Result.success(response.body())
-            } else {
-                Result.failure(Exception("Error HTTP: ${response.status}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(Exception("Error de conexión: ${e.message}"))
-        }
-    }
-
-    private fun companionObjectWorkingUrl(): String {
-        // Usar la URL principal (universidad) como en InventarioApiService
-        return PRIMARY_URL
-    }
-
-    suspend fun obtenerVentas(): Result<List<Venta>> {
-        val result = tryRequestVentas("") // Llama a /api/ventas
-        return result.fold(
-            onSuccess = { response ->
-                try {
-                    Result.success(VentasApiService.json.decodeFromString<List<Venta>>(response))
-                } catch (e: Exception) {
-                    Result.failure(Exception("Error al decodificar respuesta: ${e.message}"))
-                }
-            },
-            onFailure = { error ->
-                Result.failure(Exception("Error al obtener ventas: ${error.message}"))
-            }
-        )
-    }
-
-    suspend fun obtenerMetricas(): Result<MetricasVentas> {
-        val result = tryRequestVentas("/metricas") // Llama a /api/ventas/metricas
-        return result.fold(
-            onSuccess = { response ->
-                try {
-                    Result.success(VentasApiService.json.decodeFromString<MetricasVentas>(response))
-                } catch (e: Exception) {
-                    Result.failure(Exception("Error al decodificar métricas: ${e.message}"))
-                }
-            },
-            onFailure = { error ->
-                Result.failure(error)
-            }
-        )
-    }
-
-    suspend fun crearVenta(nuevaVenta: NuevaVentaRequest): Result<Venta> {
-        return try {
-            for (baseUrl in CONNECTION_URLS) {
-                try {
-                    val response = httpClient.post("$baseUrl$API_PATH_VENTAS") {
-                        contentType(ContentType.Application.Json)
-                        setBody(nuevaVenta)
-                    }
-                    if (response.status == HttpStatusCode.Created || response.status == HttpStatusCode.OK) {
-                        val venta = response.body<Venta>()
-                        return Result.success(venta)
-                    }
-                } catch (e: Exception) {
-                    // Intenta con la siguiente URL
-                }
-            }
-            Result.failure(Exception("No se pudo crear la venta en ningún servidor."))
-        } catch (e: Exception) {
-            Result.failure(Exception("Error al crear venta: ${e.message}"))
+        if (resp.status == HttpStatusCode.Created || resp.status == HttpStatusCode.OK) {
+            val payload = resp.bodyAsText()
+            decodeVenta(payload)
+        } else {
+            throw IllegalStateException("HTTP ${resp.status}")
         }
     }
 
-    suspend fun obtenerVentaPorId(id: String): Result<Venta> {
-        val result = tryRequestVentas("/$id") // Llama a /api/ventas/{id}
-        return result.fold(
-            onSuccess = { response ->
-                try {
-                    Result.success(VentasApiService.json.decodeFromString<Venta>(response))
-                } catch (e: Exception) {
-                    Result.failure(Exception("Error al decodificar venta: ${e.message}"))
-                }
-            },
-            onFailure = { error ->
-                Result.failure(error)
-            }
-        )
+    suspend fun obtenerVentaPorId(id: String): Result<Venta> = firstSuccessful { base ->
+        val payload = httpClient.get("$base$API_PATH_VENTAS/$id").bodyAsText()
+        decodeVenta(payload)
     }
 
     suspend fun actualizarEstadoVenta(id: String, nuevoEstado: EstadoVenta): Result<Venta> {
-        return try {
-            for (baseUrl in CONNECTION_URLS) {
-                try {
-                    val response = httpClient.patch("$baseUrl$API_PATH_VENTAS/ventas/$id/estado") {
-                        contentType(ContentType.Application.Json)
-                        setBody(mapOf("estado" to nuevoEstado))
-                    }
-                    if (response.status == HttpStatusCode.OK) {
-                        val venta = response.body<Venta>()
-                        return Result.success(venta)
-                    }
-                } catch (_: Exception) {
-                    continue
-                }
+        return firstSuccessful { base ->
+            val resp = httpClient.patch("$base$API_PATH_VENTAS/$id/estado") {
+                contentType(ContentType.Application.Json)
+                setBody(mapOf("estado" to nuevoEstado))
             }
-            Result.failure(Exception("No se pudo actualizar el estado de la venta"))
-        } catch (e: Exception) {
-            Result.failure(e)
+            if (resp.status == HttpStatusCode.OK) {
+                val payload = resp.bodyAsText()
+                decodeVenta(payload)
+            } else throw IllegalStateException("HTTP ${resp.status}")
         }
     }
 
-    suspend fun obtenerProductosParaVenta(): Result<List<Producto>> {
-        for (baseUrl in CONNECTION_URLS) {
-            try {
-                val response = httpClient.get("$baseUrl$API_PATH_INVENTARIO")
-                if (response.status == HttpStatusCode.OK) {
-                    val productos = response.body<List<Producto>>()
-                    println("✅ VENTAS: ${productos.size} productos cargados exitosamente desde $baseUrl$API_PATH_INVENTARIO")
-                    return Result.success(productos)
-                }
-            } catch (e: Exception) {
-                println("❌ VENTAS: Error al obtener productos desde $baseUrl$API_PATH_INVENTARIO: ${e.message}")
-                continue
-            }
-        }
-        return Result.failure(Exception("No se pudo obtener productos desde ningún servidor."))
+    suspend fun obtenerProductosParaVenta(): Result<List<Producto>> = firstSuccessful { base ->
+        val resp: InventarioPage = httpClient.get(base + API_PATH_INVENTARIO) {
+            parameter("estado", "ACTIVO")
+            parameter("limit", 200)
+        }.body()
+        resp.items
     }
 }
+
+private fun decodeVentasList(payload: String): VentasListResponse {
+    val jsonConfig = VentasApiService.json
+    return try {
+        jsonConfig.decodeFromString(VentasListResponse.serializer(), payload)
+    } catch (_: SerializationException) {
+        val legacyList = jsonConfig.decodeFromString(ListSerializer(LegacyVenta.serializer()), payload)
+        val ventas = legacyList.map { it.toNew() }
+        val metricas = MetricasVentas(
+            ventasHoy = ventas.sumOf { it.total },
+            ordenesHoy = ventas.size,
+            ticketPromedio = if (ventas.isNotEmpty()) ventas.sumOf { it.total } / ventas.size else 0,
+            ventasMes = ventas.sumOf { it.total },
+            crecimientoVentasHoy = 0,
+            crecimientoOrdenes = 0,
+            crecimientoTicket = 0,
+            crecimientoMes = 0
+        )
+        VentasListResponse(ventas = ventas, metricas = metricas)
+    }
+}
+
+private fun decodeMetricas(payload: String): MetricasVentas {
+    val jsonConfig = VentasApiService.json
+    return try {
+        jsonConfig.decodeFromString(MetricasVentas.serializer(), payload)
+    } catch (_: SerializationException) {
+        val legacy = jsonConfig.decodeFromString(LegacyMetricas.serializer(), payload)
+        legacy.toNew()
+    }
+}
+
+private fun decodeVenta(payload: String): Venta {
+    val jsonConfig = VentasApiService.json
+    return try {
+        jsonConfig.decodeFromString(Venta.serializer(), payload)
+    } catch (_: SerializationException) {
+        val legacy = jsonConfig.decodeFromString(LegacyVenta.serializer(), payload)
+        legacy.toNew()
+    }
+}
+
+@Serializable
+private data class LegacyVenta(
+    val id: String = "",
+    val cliente: String,
+    val fecha: String,
+    val total: Double,
+    val estado: EstadoVenta,
+    val metodoPago: MetodoPago,
+    val observaciones: String? = null,
+    val productos: List<LegacyProductoVenta> = emptyList()
+)
+
+@Serializable
+private data class LegacyProductoVenta(
+    val id: Int,
+    val nombre: String,
+    val cantidad: Int,
+    val precio: Double,
+    val subtotal: Double
+)
+
+@Serializable
+private data class LegacyMetricas(
+    val ventasHoy: Double = 0.0,
+    val ordenesHoy: Int = 0,
+    val ticketPromedio: Double = 0.0,
+    val ventasMes: Double = 0.0,
+    val crecimientoVentasHoy: Double = 0.0,
+    val crecimientoOrdenes: Double = 0.0,
+    val crecimientoTicket: Double = 0.0,
+    val crecimientoMes: Double = 0.0
+)
+
+private fun LegacyMetricas.toNew(): MetricasVentas = MetricasVentas(
+    ventasHoy = ventasHoy.roundToLong(),
+    ordenesHoy = ordenesHoy,
+    ticketPromedio = ticketPromedio.roundToLong(),
+    ventasMes = ventasMes.roundToLong(),
+    crecimientoVentasHoy = crecimientoVentasHoy.toInt(),
+    crecimientoOrdenes = crecimientoOrdenes.toInt(),
+    crecimientoTicket = crecimientoTicket.toInt(),
+    crecimientoMes = crecimientoMes.toInt()
+)
+
+private fun LegacyVenta.toNew(): Venta = Venta(
+    id = id,
+    numero = id,
+    cliente = cliente,
+    fecha = fecha,
+    total = total.roundToLong(),
+    descuento = 0L,
+    estado = estado,
+    metodoPago = metodoPago,
+    vendedorId = null,
+    observaciones = observaciones,
+    productos = productos.map { it.toNew() }
+)
+
+private fun LegacyProductoVenta.toNew(): ProductoVenta = ProductoVenta(
+    id = id,
+    nombre = nombre,
+    cantidad = cantidad,
+    precio = precio.roundToLong(),
+    subtotal = subtotal.roundToLong()
+)

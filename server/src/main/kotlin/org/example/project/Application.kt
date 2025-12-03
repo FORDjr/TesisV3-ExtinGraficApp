@@ -12,6 +12,18 @@ import org.example.project.config.DatabaseConfig
 import org.example.project.routes.authRoutes
 import org.example.project.routes.inventarioRoutes
 import org.example.project.routes.ventasRoutes
+import io.ktor.server.plugins.cors.routing.*
+import io.ktor.http.*
+import io.ktor.server.plugins.callid.*
+import io.ktor.server.request.path // para path()
+import org.slf4j.event.Level
+import java.util.UUID
+import org.jetbrains.exposed.sql.transactions.transaction
+import org.example.project.routes.extintoresRoutes
+import org.example.project.routes.dashboardRoutes
+import org.example.project.routes.movimientosRoutes
+import org.example.project.services.AlertScheduler
+import org.example.project.services.ExtintoresService
 
 fun main() {
     println("🚀 Iniciando servidor en puerto $SERVER_PORT")
@@ -29,6 +41,14 @@ fun Application.module() {
     /* ---------- Base de datos ---------- */
     DatabaseConfig.init()
 
+    if (!DISABLE_SCHEDULER) {
+        // Scheduler alertas (intervalo 60m en prod, 10m en dev)
+        val interval = if (IS_PRODUCTION) 60L else 10L
+        AlertScheduler(ExtintoresService()).start(interval)
+    } else {
+        println("[Scheduler] Deshabilitado por DISABLE_SCHEDULER=true")
+    }
+
     /* ---------- Serialización JSON ---------- */
     install(ContentNegotiation) {
         json(
@@ -38,6 +58,37 @@ fun Application.module() {
                 ignoreUnknownKeys = true
             }
         )
+    }
+
+    /* ---------- Observabilidad / Logging ---------- */
+    install(CallId) {
+        header("X-Request-Id")
+        generate { UUID.randomUUID().toString() }
+        verify { it.isNotBlank() }
+    }
+
+    /* ---------- CORS ---------- */
+    install(CORS) {
+        allowMethod(HttpMethod.Get)
+        allowMethod(HttpMethod.Post)
+        allowMethod(HttpMethod.Put)
+        allowMethod(HttpMethod.Delete)
+        allowMethod(HttpMethod.Options)
+        allowHeader(HttpHeaders.ContentType)
+        allowHeader(HttpHeaders.Authorization)
+        allowHeader("X-Request-Id")
+        allowCredentials = false
+        if (!IS_PRODUCTION && ALLOWED_ORIGINS == "*") {
+            anyHost()
+        } else {
+            ALLOWED_ORIGINS.split(',')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .forEach { origin ->
+                    val clean = origin.removePrefix("https://").removePrefix("http://")
+                    allowHost(clean, schemes = listOf("http", "https"))
+                }
+        }
     }
 
     /* ---------- Rutas ---------- */
@@ -51,13 +102,47 @@ fun Application.module() {
 
         // Rutas de inventario
         inventarioRoutes()
+        movimientosRoutes()
 
         // Rutas de ventas
         ventasRoutes()
 
-        // Endpoint de salud
-        get("/health") {
-            call.respondText("Base de datos conectada • Inventario y Ventas API v1.0")
+        // Rutas de extintores
+        extintoresRoutes()
+
+        // Rutas de dashboard
+        dashboardRoutes()
+
+        // Health con GET y HEAD
+        route("/health") {
+            get { call.respondText("OK") }
+            head { call.respondText("") }
+            get("/db") {
+                val (statusText, code) = try {
+                    transaction { 1 }
+                    "OK" to HttpStatusCode.OK
+                } catch (e: Exception) {
+                    ("FAIL:${e.message?.take(120)}") to HttpStatusCode.InternalServerError
+                }
+                call.respondText(statusText, status = code)
+            }
+            get("/info") {
+                val dbOk = try {
+                    transaction { 1 }; true
+                } catch (_: Exception) { false }
+                val payload = mapOf(
+                    "status" to "OK",
+                    "version" to API_VERSION,
+                    "environment" to (if (IS_PRODUCTION) "production" else "development"),
+                    "db" to (if (dbOk) "UP" else "DOWN"),
+                    "timestamp" to System.currentTimeMillis()
+                )
+                call.respond(payload)
+            }
+        }
+
+        get("/version") {
+            call.respondText("Inventario y Ventas API v1.0")
         }
     }
 }

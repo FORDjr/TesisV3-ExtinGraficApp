@@ -1,27 +1,31 @@
--- Script para limpiar y recrear las tablas de la base de datos
--- Ejecuta esto en tu cliente PostgreSQL antes de reiniciar el servidor
+-- Limpia todas las tablas de la app para que el seeder repueble con datos frescos.
+-- Úsalo desde tu cliente Postgres (DBeaver: abre una pestaña SQL sobre tu DB y ejecuta).
 
--- Eliminar tabla si existe
+BEGIN;
+
+-- Relaciones hijas primero
+DROP TABLE IF EXISTS venta_productos CASCADE;
+DROP TABLE IF EXISTS ventas CASCADE;
+
+DROP TABLE IF EXISTS service_registro_productos CASCADE;
+DROP TABLE IF EXISTS service_registros CASCADE;
+
+DROP TABLE IF EXISTS alertas CASCADE;
+DROP TABLE IF EXISTS certificados CASCADE;
+DROP TABLE IF EXISTS orden_servicio_extintores CASCADE;
+DROP TABLE IF EXISTS ordenes_servicio CASCADE;
+
+DROP TABLE IF EXISTS extintores CASCADE;
+DROP TABLE IF EXISTS sedes CASCADE;
+DROP TABLE IF EXISTS clientes CASCADE;
+
+DROP TABLE IF EXISTS movimientos_inventario CASCADE;
+DROP TABLE IF EXISTS proveedores CASCADE;
 DROP TABLE IF EXISTS productos CASCADE;
+DROP TABLE IF EXISTS usuarios CASCADE;
 
--- Recrear tabla con la estructura correcta
-CREATE TABLE productos (
-    id SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    descripcion TEXT,
-    precio DECIMAL(10,2) NOT NULL,
-    cantidad INTEGER NOT NULL,
-    categoria VARCHAR(50) NOT NULL,
-    fecha_creacion TIMESTAMP NOT NULL,
-    fecha_actualizacion TIMESTAMP NOT NULL
-);
+COMMIT;
 
--- Verificar que la tabla se creó correctamente
-\d productos;
-
--- Insertar un producto de prueba
-INSERT INTO productos (nombre, descripcion, precio, cantidad, categoria, fecha_creacion, fecha_actualizacion)
-VALUES ('Producto Test', 'Producto de prueba', 99.99, 5, 'Test', NOW(), NOW());
-
--- Verificar que se insertó correctamente
-SELECT * FROM productos;
+-- Después de ejecutar:
+-- 1) Levanta el backend (./gradlew run o docker compose up) para que DatabaseSeeder repueble.
+-- 2) Refresca en DBeaver para ver los datos nuevos.

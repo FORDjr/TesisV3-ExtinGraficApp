@@ -9,7 +9,7 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
 import org.example.project.data.models.*
-import org.example.project.LOCAL_SERVER_URL
+import org.example.project.preferredBaseUrl
 
 class AuthApiClient {
 
@@ -27,9 +27,8 @@ class AuthApiClient {
         }
     }
 
-    // URL base del servidor universitario
-    // Usando el servidor desplegado en la universidad
-    private val baseUrl = "http://146.83.198.35:1609"
+    // URL base del servidor
+    private val baseUrl: String = preferredBaseUrl()
 
     // Registro de usuario
     suspend fun registrarUsuario(registro: UsuarioRegistro): Result<RegistroResponse> {
@@ -70,7 +69,7 @@ class AuthApiClient {
     // Probar conexión con el servidor
     suspend fun probarConexion(): Result<String> {
         return try {
-            val response: String = client.get("$baseUrl/auth/test").body()
+            val response: String = client.get("$baseUrl/health").body()
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)

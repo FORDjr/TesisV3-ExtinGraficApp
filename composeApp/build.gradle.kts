@@ -1,13 +1,27 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
+
+fun Project.resolveServerBaseUrl(default: String = "http://10.0.2.2:8080"): String {
+    val props = Properties()
+    val localFile = rootProject.file("local.properties")
+    if (localFile.exists()) {
+        localFile.inputStream().use(props::load)
+    }
+    return props.getProperty("SERVER_BASE_URL")
+        ?: (findProperty("SERVER_BASE_URL") as? String)
+        ?: System.getenv("SERVER_BASE_URL")
+        ?: default
+}
+
+val serverBaseUrl = project.resolveServerBaseUrl()
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.composeHotReload)
     alias(libs.plugins.kotlinx.serialization) // Agregando serialización
 }
 
@@ -38,10 +52,11 @@ kotlin {
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
-            // Cliente HTTP para Android - versión compatible
-            implementation("io.ktor:ktor-client-android:2.3.12")
+            // Ktor cliente Android unificado (3.2.0 via catálogo)
+            implementation(libs.ktor.client.android)
             // Material Icons para Android
             implementation("androidx.compose.material:material-icons-extended:1.6.8")
+            implementation("com.google.accompanist:accompanist-systemuicontroller:0.32.0")
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -54,13 +69,16 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(projects.shared)
 
-            // Dependencias para HTTP y serialización - versiones compatibles
-            implementation("io.ktor:ktor-client-core:2.3.12")
-            implementation("io.ktor:ktor-client-content-negotiation:2.3.12")
-            implementation("io.ktor:ktor-client-logging:2.3.12")
-            implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.12")
-            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
-            implementation("com.google.accompanist:accompanist-systemuicontroller:0.32.0")
+            // Ktor cliente común
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.client.logging)
+            implementation(libs.ktor.serialization.kotlinx.json)
+            // Coroutines core desde catálogo
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.datetime)
+            // Agregamos iconos extendidos para uso en commonMain
+            implementation(compose.materialIconsExtended)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -70,8 +88,8 @@ kotlin {
             implementation(libs.kotlinx.coroutinesSwing)
             // Material Icons para Desktop
             implementation("androidx.compose.material:material-icons-extended:1.6.8")
-            // Cliente HTTP para Desktop - DEPENDENCIA FALTANTE
-            implementation("io.ktor:ktor-client-cio:2.3.12")
+            // Ktor cliente CIO para desktop
+            implementation(libs.ktor.client.cio)
         }
     }
 }
@@ -86,9 +104,14 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
-
-        // Configuración para evitar problemas con DEX
+        // URL base configurable (emulador por defecto)
+        buildConfigField("String", "BASE_API_URL", "\"$serverBaseUrl\"")
+        // multiDex
         multiDexEnabled = true
+    }
+    lint {
+        // AGP 8.7 + Kotlin 2.0.x disparan un falso positivo en este detector
+        disable += setOf("NullSafeMutableLiveData")
     }
     packaging {
         resources {

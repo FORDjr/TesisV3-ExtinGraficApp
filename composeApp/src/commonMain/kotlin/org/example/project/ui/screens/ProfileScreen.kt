@@ -1,254 +1,109 @@
 package org.example.project.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.example.project.data.auth.AuthManager
+import org.example.project.ui.components.ExtintorCard
 import org.example.project.ui.theme.ExtintorColors
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit = {}
 ) {
-    // Obtener datos del usuario actual usando AuthState
     val authState by AuthManager.authState.collectAsState()
     var showEditDialog by remember { mutableStateOf(false) }
-    var showChangePasswordDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(horizontal = 16.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Header con avatar y nombre
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Avatar grande
-                Box(
-                    modifier = Modifier
-                        .size(120.dp)
-                        .clip(CircleShape)
-                        .background(
-                            brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                                colors = listOf(
-                                    ExtintorColors.ExtintorRed,
-                                    ExtintorColors.ExtintorRedLight
-                                )
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (authState.isAuthenticated && authState.userName.isNotBlank()) {
-                            // Extraer iniciales del nombre completo
-                            val names = authState.userName.split(" ")
-                            if (names.size >= 2) {
-                                "${names[0].first().uppercase()}${names[1].first().uppercase()}"
-                            } else {
-                                authState.userName.first().uppercase()
-                            }
-                        } else {
-                            "👤"
-                        },
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = ExtintorColors.PureWhite,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+        ProfileHeaderCard(
+            name = authState.userName,
+            email = authState.userEmail,
+            role = authState.userRole,
+            userId = authState.userId
+        )
 
-                Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Acciones",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
 
-                Text(
-                    text = if (authState.isAuthenticated && authState.userName.isNotBlank()) {
-                        authState.userName
-                    } else {
-                        "Usuario"
-                    },
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = if (authState.isAuthenticated && authState.userEmail.isNotBlank()) {
-                        authState.userEmail
-                    } else {
-                        "usuario@empresa.com"
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Badge de rol
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = ExtintorColors.ExtintorRed.copy(alpha = 0.1f)
-                ) {
-                    Text(
-                        text = if (authState.isAuthenticated && authState.userRole.isNotBlank()) {
-                            authState.userRole.uppercase()
-                        } else {
-                            "USER"
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = ExtintorColors.ExtintorRed,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                    )
-                }
-            }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            ActionCard(
+                text = "Editar Perfil",
+                icon = Icons.Default.Edit,
+                isHighlighted = true,
+                onClick = { showEditDialog = true }
+            )
+            ActionCard(
+                text = "Cerrar Sesion",
+                icon = Icons.AutoMirrored.Filled.ExitToApp,
+                onClick = onLogout
+            )
         }
 
-        // Información del perfil
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
-                Text(
-                    text = "Información Personal",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+        Text(
+            text = "Informacion",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
 
-                ProfileInfoItem(
-                    icon = Icons.Default.Person,
-                    label = "Nombre completo",
-                    value = if (authState.isAuthenticated && authState.userName.isNotBlank()) {
-                        authState.userName
-                    } else {
-                        "No disponible"
-                    }
-                )
-
-                ProfileInfoItem(
-                    icon = Icons.Default.Email,
-                    label = "Correo electrónico",
-                    value = if (authState.isAuthenticated && authState.userEmail.isNotBlank()) {
-                        authState.userEmail
-                    } else {
-                        "No disponible"
-                    }
-                )
-
-                ProfileInfoItem(
-                    icon = Icons.Default.Person,
-                    label = "Rol",
-                    value = if (authState.isAuthenticated && authState.userRole.isNotBlank()) {
-                        authState.userRole
-                    } else {
-                        "user"
-                    }
-                )
-
-                ProfileInfoItem(
-                    icon = Icons.Default.Person,
-                    label = "ID de usuario",
-                    value = if (authState.isAuthenticated && authState.userId > 0) {
-                        authState.userId.toString()
-                    } else {
-                        "No disponible"
-                    }
-                )
-            }
-        }
-
-        // Acciones
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "Acciones",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                Button(
-                    onClick = { showEditDialog = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Editar perfil")
-                }
-
-                OutlinedButton(
-                    onClick = { showChangePasswordDialog = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Lock, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Cambiar contraseña")
-                }
-
-                Button(
-                    onClick = onLogout,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Cerrar sesión")
-                }
-            }
-        }
+        ProfileInfoCard(
+            lastAccess = "Hoy, 09:30 AM",
+            memberSince = "Enero 2024",
+            version = "1.0.0"
+        )
     }
 
-    // Diálogos (por implementar en el futuro)
     if (showEditDialog) {
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
             title = { Text("Editar perfil") },
-            text = { Text("Esta función estará disponible próximamente.") },
+            text = { Text("Esta funcion estara disponible proximamente.") },
             confirmButton = {
                 TextButton(onClick = { showEditDialog = false }) {
-                    Text("Entendido")
-                }
-            }
-        )
-    }
-
-    if (showChangePasswordDialog) {
-        AlertDialog(
-            onDismissRequest = { showChangePasswordDialog = false },
-            title = { Text("Cambiar contraseña") },
-            text = { Text("Esta función estará disponible próximamente.") },
-            confirmButton = {
-                TextButton(onClick = { showChangePasswordDialog = false }) {
                     Text("Entendido")
                 }
             }
@@ -257,37 +112,162 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun ProfileInfoItem(
-    icon: ImageVector,
-    label: String,
-    value: String
+private fun ProfileHeaderCard(
+    name: String,
+    email: String,
+    role: String,
+    userId: Int
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp)
-        )
+    val initials = remember(name) { name.extractInitials() }
 
-        Spacer(modifier = Modifier.width(12.dp))
+    ExtintorCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(CircleShape),
+                color = Color.Transparent
+            ) {
+                Box(
+                    modifier = Modifier
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    ExtintorColors.ExtintorRed,
+                                    ExtintorColors.ExtintorRedLight
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = initials,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = ExtintorColors.PureWhite,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
 
-        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall,
+                text = if (name.isNotBlank()) name else "Juan Diaz",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = if (email.isNotBlank()) email else "juan.diaz@empresa.com",
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProfileBadge(text = role.ifBlank { "Administrador" })
+                val code = if (userId > 0) "USR-%03d".format(userId) else "USR-001"
+                ProfileBadge(text = "ID: ")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileBadge(text: String) {
+    Surface(
+        color = ExtintorColors.ExtintorRed.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = ExtintorColors.ExtintorRed,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ActionCard(
+    text: String,
+    icon: ImageVector,
+    isHighlighted: Boolean = false,
+    onClick: () -> Unit
+) {
+    val background = if (isHighlighted) ExtintorColors.ExtintorRed.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
+    val contentColor = if (isHighlighted) ExtintorColors.ExtintorRed else MaterialTheme.colorScheme.onSurface
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = background,
+        shape = RoundedCornerShape(16.dp),
+        tonalElevation = 0.dp,
+        shadowElevation = if (isHighlighted) 0.dp else 1.dp,
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = contentColor)
             Text(
-                text = value,
+                text = text,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold,
+                color = contentColor
             )
         }
+    }
+}
+
+@Composable
+private fun ProfileInfoCard(
+    lastAccess: String,
+    memberSince: String,
+    version: String
+) {
+    ExtintorCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            InfoRow(label = "Ultimo acceso", value = lastAccess)
+            InfoRow(label = "Miembro desde", value = memberSince)
+            InfoRow(label = "Version", value = version)
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+private fun String.extractInitials(): String {
+    if (isBlank()) return "JD"
+    val parts = trim().split(" ").filter { it.isNotBlank() }
+    return when {
+        parts.size >= 2 -> parts[0].first().uppercaseChar().toString() + parts[1].first().uppercaseChar()
+        parts.size == 1 -> parts[0].first().uppercaseChar().toString()
+        else -> "JD"
     }
 }

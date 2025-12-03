@@ -1,127 +1,125 @@
-package org.example.project.ui.theme
+﻿package org.example.project.ui.theme
 
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
-// Paleta de Colores Elegante: Extintor + Negro + Blanco
 object ExtintorColors {
-    // Colores principales
-    val ExtintorRed = Color(0xFFDC2626)          // Rojo extintor intenso
-    val ExtintorRedLight = Color(0xFFEF4444)     // Rojo extintor claro
-    val ExtintorRedDark = Color(0xFFB91C1C)      // Rojo extintor oscuro
+    // Core palette
+    val PrimaryRed = Color(0xFFEB4B4B)
+    val PrimaryRedDark = Color(0xFFD63A3A)
+    val PrimaryRedSoft = Color(0xFFFFE5E5)
 
-    // Escala de grises elegantes
-    val CharcoalBlack = Color(0xFF1F1F23)        // Negro carbón
-    val DeepBlack = Color(0xFF0F0F11)            // Negro profundo
-    val PureWhite = Color(0xFFFFFFFE)            // Blanco puro
-    val SoftWhite = Color(0xFFFAFAFA)            // Blanco suave
+    val Slate950 = Color(0xFF0F172A)
+    val Slate900 = Color(0xFF111827)
+    val Slate800 = Color(0xFF1F2937)
+    val Slate700 = Color(0xFF374151)
+    val Slate600 = Color(0xFF475569)
+    val Slate500 = Color(0xFF64748B)
+    val Slate400 = Color(0xFF94A3B8)
+    val Slate300 = Color(0xFFCBD5E1)
+    val Slate200 = Color(0xFFE2E8F0)
+    val Slate100 = Color(0xFFF1F5F9)
+    val Slate50 = Color(0xFFF8FAFC)
 
-    // Grises sofisticados
-    val Gray50 = Color(0xFFF9FAFB)
-    val Gray100 = Color(0xFFF3F4F6)
-    val Gray200 = Color(0xFFE5E7EB)
-    val Gray300 = Color(0xFFD1D5DB)
-    val Gray400 = Color(0xFF9CA3AF)
-    val Gray500 = Color(0xFF6B7280)
-    val Gray600 = Color(0xFF4B5563)
-    val Gray700 = Color(0xFF374151)
-    val Gray800 = Color(0xFF1F2937)
-    val Gray900 = Color(0xFF111827)
-
-    // Colores de estado con toques rojos
-    val Success = Color(0xFF10B981)
+    val Success = Color(0xFF22C55E)
     val Warning = Color(0xFFF59E0B)
-    val Error = ExtintorRed
-    val Info = Color(0xFF3B82F6)
+    val Error = Color(0xFFEF4444)
+    val Info = Color(0xFF38BDF8)
+
+    // Legacy aliases kept for compatibility while refactoring the UI codebase
+    val ExtintorRed: Color get() = PrimaryRed
+    val ExtintorRedLight = Color(0xFFFF6B6B)
+    val ExtintorRedDark: Color get() = PrimaryRedDark
+
+    val CharcoalBlack: Color get() = Slate900
+    val DeepBlack: Color get() = Slate950
+    val PureWhite: Color = Color.White
+    val SoftWhite: Color get() = Slate50
+    val SoftLavender: Color = Color(0xFFF0EAF7)
+
+    val Gray50: Color get() = Slate50
+    val Gray100: Color get() = Slate100
+    val Gray200: Color get() = Slate200
+    val Gray300: Color get() = Slate300
+    val Gray400: Color get() = Slate400
+    val Gray500: Color get() = Slate500
+    val Gray600: Color get() = Slate600
+    val Gray700: Color get() = Slate700
+    val Gray800: Color get() = Slate800
+    val Gray900: Color get() = Slate900
 }
 
-// Esquema de colores claro elegante
 val LightExtintorColorScheme = lightColorScheme(
-    // Colores principales
-    primary = ExtintorColors.ExtintorRed,
-    onPrimary = ExtintorColors.PureWhite,
-    primaryContainer = ExtintorColors.ExtintorRedLight,
-    onPrimaryContainer = ExtintorColors.CharcoalBlack,
+    primary = ExtintorColors.PrimaryRed,
+    onPrimary = Color.White,
+    primaryContainer = ExtintorColors.PrimaryRedSoft,
+    onPrimaryContainer = ExtintorColors.PrimaryRedDark,
 
-    // Colores secundarios
-    secondary = ExtintorColors.Gray600,
-    onSecondary = ExtintorColors.PureWhite,
-    secondaryContainer = ExtintorColors.Gray100,
-    onSecondaryContainer = ExtintorColors.CharcoalBlack,
+    secondary = ExtintorColors.Slate700,
+    onSecondary = Color.White,
+    secondaryContainer = ExtintorColors.Slate100,
+    onSecondaryContainer = ExtintorColors.Slate900,
 
-    // Colores terciarios
-    tertiary = ExtintorColors.ExtintorRedDark,
-    onTertiary = ExtintorColors.PureWhite,
-    tertiaryContainer = ExtintorColors.Gray50,
-    onTertiaryContainer = ExtintorColors.CharcoalBlack,
+    tertiary = ExtintorColors.Slate600,
+    onTertiary = Color.White,
+    tertiaryContainer = ExtintorColors.Slate100,
+    onTertiaryContainer = ExtintorColors.Slate800,
 
-    // Colores de error
     error = ExtintorColors.Error,
-    onError = ExtintorColors.PureWhite,
-    errorContainer = Color(0xFFFFEDED),
-    onErrorContainer = ExtintorColors.ExtintorRedDark,
+    onError = Color.White,
+    errorContainer = ExtintorColors.PrimaryRedSoft,
+    onErrorContainer = ExtintorColors.PrimaryRedDark,
 
-    // Colores de fondo
-    background = ExtintorColors.SoftWhite,
-    onBackground = ExtintorColors.CharcoalBlack,
-    surface = ExtintorColors.PureWhite,
-    onSurface = ExtintorColors.CharcoalBlack,
-    surfaceVariant = ExtintorColors.Gray50,
-    onSurfaceVariant = ExtintorColors.Gray600,
+    background = ExtintorColors.Slate50,
+    onBackground = ExtintorColors.Slate900,
+    surface = Color.White,
+    onSurface = ExtintorColors.Slate900,
+    surfaceVariant = ExtintorColors.Slate100,
+    onSurfaceVariant = ExtintorColors.Slate600,
 
-    // Colores de contorno
-    outline = ExtintorColors.Gray300,
-    outlineVariant = ExtintorColors.Gray200,
+    outline = ExtintorColors.Slate200,
+    outlineVariant = ExtintorColors.Slate100,
 
-    // Colores diversos
-    scrim = Color(0x80000000),
-    inverseSurface = ExtintorColors.CharcoalBlack,
-    inverseOnSurface = ExtintorColors.SoftWhite,
-    inversePrimary = ExtintorColors.ExtintorRedLight,
+    scrim = Color(0x66000000),
+    inverseSurface = ExtintorColors.Slate900,
+    inverseOnSurface = Color.White,
+    inversePrimary = ExtintorColors.PrimaryRedSoft,
 )
 
-// Esquema de colores oscuro elegante
 val DarkExtintorColorScheme = darkColorScheme(
-    // Colores principales
-    primary = ExtintorColors.ExtintorRedLight,
-    onPrimary = ExtintorColors.DeepBlack,
-    primaryContainer = ExtintorColors.ExtintorRedDark,
-    onPrimaryContainer = ExtintorColors.PureWhite,
+    primary = ExtintorColors.PrimaryRedSoft,
+    onPrimary = ExtintorColors.PrimaryRedDark,
+    primaryContainer = ExtintorColors.PrimaryRed,
+    onPrimaryContainer = Color.White,
 
-    // Colores secundarios
-    secondary = ExtintorColors.Gray400,
-    onSecondary = ExtintorColors.Gray900,
-    secondaryContainer = ExtintorColors.Gray800,
-    onSecondaryContainer = ExtintorColors.Gray100,
+    secondary = ExtintorColors.Slate300,
+    onSecondary = ExtintorColors.Slate900,
+    secondaryContainer = ExtintorColors.Slate700,
+    onSecondaryContainer = ExtintorColors.Slate100,
 
-    // Colores terciarios
-    tertiary = ExtintorColors.ExtintorRed,
-    onTertiary = ExtintorColors.PureWhite,
-    tertiaryContainer = ExtintorColors.Gray900,
-    onTertiaryContainer = ExtintorColors.Gray100,
+    tertiary = ExtintorColors.Slate400,
+    onTertiary = ExtintorColors.Slate950,
+    tertiaryContainer = ExtintorColors.Slate800,
+    onTertiaryContainer = ExtintorColors.Slate100,
 
-    // Colores de error
-    error = ExtintorColors.ExtintorRedLight,
-    onError = ExtintorColors.DeepBlack,
-    errorContainer = ExtintorColors.ExtintorRedDark,
-    onErrorContainer = ExtintorColors.Gray100,
+    error = ExtintorColors.Error,
+    onError = Color.White,
+    errorContainer = Color(0xFF7F1D1D),
+    onErrorContainer = Color.White,
 
-    // Colores de fondo
-    background = ExtintorColors.DeepBlack,
-    onBackground = ExtintorColors.SoftWhite,
-    surface = ExtintorColors.CharcoalBlack,
-    onSurface = ExtintorColors.SoftWhite,
-    surfaceVariant = ExtintorColors.Gray800,
-    onSurfaceVariant = ExtintorColors.Gray300,
+    background = ExtintorColors.Slate900,
+    onBackground = ExtintorColors.Slate100,
+    surface = ExtintorColors.Slate800,
+    onSurface = ExtintorColors.Slate100,
+    surfaceVariant = ExtintorColors.Slate700,
+    onSurfaceVariant = ExtintorColors.Slate300,
 
-    // Colores de contorno
-    outline = ExtintorColors.Gray600,
-    outlineVariant = ExtintorColors.Gray700,
+    outline = ExtintorColors.Slate600,
+    outlineVariant = ExtintorColors.Slate700,
 
-    // Colores diversos
-    scrim = Color(0x80000000),
-    inverseSurface = ExtintorColors.Gray100,
-    inverseOnSurface = ExtintorColors.CharcoalBlack,
-    inversePrimary = ExtintorColors.ExtintorRed,
+    scrim = Color(0x99000000),
+    inverseSurface = Color.White,
+    inverseOnSurface = ExtintorColors.Slate900,
+    inversePrimary = ExtintorColors.PrimaryRed,
 )

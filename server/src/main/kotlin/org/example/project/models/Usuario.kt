@@ -1,5 +1,8 @@
 package org.example.project.models
 
+import org.jetbrains.exposed.dao.IntEntity
+import org.jetbrains.exposed.dao.IntEntityClass
+import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.kotlin.datetime.datetime
 import kotlinx.datetime.LocalDateTime
@@ -15,6 +18,8 @@ object Usuarios : IntIdTable("usuarios") {
     val activo = bool("activo").default(true)
     val fechaCreacion = datetime("fecha_creacion")
     val fechaUltimoAcceso = datetime("fecha_ultimo_acceso").nullable()
+    val intentosFallidos = integer("intentos_fallidos").default(0)
+    val bloqueadoHasta = datetime("bloqueado_hasta").nullable()
 }
 
 // DTOs para la API
@@ -40,7 +45,9 @@ data class UsuarioResponse(
     val apellido: String,
     val rol: String,
     val activo: Boolean,
-    val fechaCreacion: String
+    val fechaCreacion: String,
+    val intentosFallidos: Int = 0,
+    val bloqueadoHasta: String? = null
 )
 
 @Serializable
@@ -57,3 +64,17 @@ data class RegistroResponse(
     val message: String,
     val usuario: UsuarioResponse? = null
 )
+
+class Usuario(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<Usuario>(Usuarios)
+    var email by Usuarios.email
+    var password by Usuarios.password
+    var nombre by Usuarios.nombre
+    var apellido by Usuarios.apellido
+    var rol by Usuarios.rol
+    var activo by Usuarios.activo
+    var fechaCreacion by Usuarios.fechaCreacion
+    var fechaUltimoAcceso by Usuarios.fechaUltimoAcceso
+    var intentosFallidos by Usuarios.intentosFallidos
+    var bloqueadoHasta by Usuarios.bloqueadoHasta
+}

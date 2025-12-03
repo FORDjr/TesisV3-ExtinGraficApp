@@ -1,0 +1,81 @@
+# COMANDOS PARA SERVIDOR - Actualizar túnel cloudflared con URL que funciona
+# Copiar y pegar en el servidor (línea por línea)
+
+# 1. Guardar la URL que funciona
+echo "https://alpine-actor-remind-andy.trycloudflare.com" > /var/log/cloudflared-current-url.txt
+
+# 2. Probar que el túnel funciona correctamente
+curl -I "https://alpine-actor-remind-andy.trycloudflare.com/health"
+curl -s "https://alpine-actor-remind-andy.trycloudflare.com/api/dashboard" | head
+
+# 3. Ver procesos cloudflared actuales
+ps -eo pid,cmd | grep -i cloudflared | grep -v grep
+
+# 4. Limpiar procesos múltiples si hay más de uno
+pkill -f "cloudflared tunnel" 2>/dev/null || true
+sleep 2
+
+# 5. Iniciar túnel limpio apuntando a tu servidor local
+nohup cloudflared tunnel --no-autoupdate --url http://127.0.0.1:9090 --loglevel info --logfile /var/log/cloudflared-production.log >/dev/null 2>&1 &
+
+# 6. Esperar y capturar la nueva URL
+sleep 8
+NEW_URL=$(grep -a -i trycloudflare /var/log/cloudflared-production.log | sed -n 's|.*\(https://[A-Za-z0-9.-]*trycloudflare.com\).*|\1|p' | tail -1)
+echo "Nueva URL generada: $NEW_URL"
+
+# 7. Si la nueva URL funciona, actualizarla; si no, mantener la que funciona
+if curl -Is "$NEW_URL/health" >/dev/null 2>&1; then
+    echo "✅ Nueva URL funciona: $NEW_URL"
+    echo "$NEW_URL" > /var/log/cloudflared-current-url.txt
+else
+    echo "⚠️ Nueva URL no responde aún, manteniendo: https://alpine-actor-remind-andy.trycloudflare.com"
+    echo "https://alpine-actor-remind-andy.trycloudflare.com" > /var/log/cloudflared-current-url.txt
+fi
+
+# 8. Verificar que el servidor local responde
+curl -I http://127.0.0.1:9090/health
+curl -I http://25.51.247.164:9090/health
+
+# 9. Mostrar URL final para la app
+echo "=== URL FINAL PARA LA APP MÓVIL ==="
+cat /var/log/cloudflared-current-url.txt
+
+# 10. Crear script de monitoreo del túnel
+cat >/usr/local/bin/monitor-tunnel.sh <<'EOF'
+#!/usr/bin/env bash
+URL=$(cat /var/log/cloudflared-current-url.txt 2>/dev/null)
+if [ -n "$URL" ]; then
+    echo "URL del túnel: $URL"
+    if curl -Is "$URL/health" >/dev/null 2>&1; then
+        echo "✅ Túnel funcionando correctamente"
+    else
+        echo "❌ Túnel no responde, reiniciando..."
+        pkill -f "cloudflared tunnel" 2>/dev/null || true
+        sleep 2
+        nohup cloudflared tunnel --no-autoupdate --url http://127.0.0.1:9090 --loglevel info --logfile /var/log/cloudflared-production.log >/dev/null 2>&1 &
+        sleep 8
+        NEW_URL=$(grep -a -i trycloudflare /var/log/cloudflared-production.log | sed -n 's|.*\(https://[A-Za-z0-9.-]*trycloudflare.com\).*|\1|p' | tail -1)
+        echo "Nueva URL: $NEW_URL"
+        echo "$NEW_URL" > /var/log/cloudflared-current-url.txt
+    fi
+else
+    echo "❌ No hay URL guardada"
+fi
+EOF
+chmod +x /usr/local/bin/monitor-tunnel.sh
+
+# 11. Script para mostrar URL actual
+cat >/usr/local/bin/show-tunnel.sh <<'EOF'
+#!/usr/bin/env bash
+URL=$(cat /var/log/cloudflared-current-url.txt 2>/dev/null)
+echo "Túnel cloudflared: $URL"
+echo "Servidor directo: http://25.51.247.164:9090"
+echo "Probando túnel..."
+curl -I "$URL/health" 2>/dev/null && echo "✅ Túnel OK" || echo "❌ Túnel no responde"
+EOF
+chmod +x /usr/local/bin/show-tunnel.sh
+
+echo "=== COMANDOS DE USO DIARIO ==="
+echo "show-tunnel.sh     - Mostrar URL actual y estado"
+echo "monitor-tunnel.sh  - Verificar y reiniciar si es necesario"
+echo "cat /var/log/cloudflared-current-url.txt  - Solo mostrar URL"
