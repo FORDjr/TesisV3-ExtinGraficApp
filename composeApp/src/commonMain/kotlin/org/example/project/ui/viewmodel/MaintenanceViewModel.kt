@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import org.example.project.data.api.RemoteExtintor
 import org.example.project.data.maintenance.ExtinguisherAsset
 import org.example.project.data.maintenance.ExtinguisherStatus
 import org.example.project.data.maintenance.LoanRecord
@@ -25,6 +26,7 @@ import org.example.project.data.maintenance.PurchaseSuggestion
 import org.example.project.data.maintenance.StockAlert
 import org.example.project.data.model.YearMonth
 import kotlinx.datetime.LocalDate
+import org.example.project.data.api.ServiceRegistroResponse
 
 class MaintenanceViewModel : ViewModel() {
 
@@ -53,6 +55,9 @@ class MaintenanceViewModel : ViewModel() {
 
     private val _purchaseSuggestions = MutableStateFlow<List<PurchaseSuggestion>>(emptyList())
     val purchaseSuggestions: StateFlow<List<PurchaseSuggestion>> = _purchaseSuggestions.asStateFlow()
+
+    private val _qrState = MutableStateFlow(QrUiState())
+    val qrState: StateFlow<QrUiState> = _qrState.asStateFlow()
 
     val workshopMaintenances = maintenanceRecords.map { records ->
         records.filter { it.type == MaintenanceType.WORKSHOP }
@@ -91,6 +96,64 @@ class MaintenanceViewModel : ViewModel() {
             repository.refreshFromBackend()
             refreshAnalytics()
         }
+    }
+
+    fun buscarExtintorPorQr(code: String) {
+        val normalized = code.trim()
+        if (normalized.isEmpty()) {
+            _qrState.value = _qrState.value.copy(error = "Ingresa un código QR")
+            return
+        }
+        viewModelScope.launch {
+            _qrState.value = _qrState.value.copy(isLoading = true, error = null, message = null)
+            val ext = repository.scanExtintor(normalized)
+            _qrState.value = if (ext != null) {
+                _qrState.value.copy(isLoading = false, scanned = ext, message = "Extintor encontrado")
+            } else {
+                _qrState.value.copy(isLoading = false, scanned = null, error = "No se encontró el extintor $normalized")
+            }
+        }
+    }
+
+    fun registrarServicioParaQr(
+        tecnicoId: Int?,
+        ordenId: Int?,
+        observaciones: String?,
+        pesoInicial: String? = null
+    ) {
+        val extintor = _qrState.value.scanned
+        if (extintor == null) {
+            _qrState.value = _qrState.value.copy(error = "Escanea primero un extintor")
+            return
+        }
+        viewModelScope.launch {
+            _qrState.value = _qrState.value.copy(isLoading = true, message = null, error = null)
+            val result = runCatching {
+                repository.registrarServicio(
+                    extintorId = extintor.id,
+                    tecnicoId = tecnicoId,
+                    ordenId = ordenId,
+                    observaciones = observaciones,
+                    pesoInicial = pesoInicial
+                )
+            }
+            result.onSuccess { resp ->
+                val updatedExt = repository.scanExtintor(extintor.codigoQr) ?: extintor
+                _qrState.value = _qrState.value.copy(
+                    isLoading = false,
+                    message = "Servicio registrado (${resp.numeroCertificado ?: "certificado generado"})",
+                    error = null,
+                    scanned = updatedExt
+                )
+                refreshAnalytics()
+            }.onFailure { e ->
+                _qrState.value = _qrState.value.copy(isLoading = false, error = e.message ?: "Error al registrar servicio")
+            }
+        }
+    }
+
+    fun clearQrMessages() {
+        _qrState.value = _qrState.value.copy(message = null, error = null)
     }
 
     fun registerWorkshopIntake(
@@ -185,7 +248,16 @@ class MaintenanceViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             val result = runCatching {
-                repository.createExtinguisher(code, owner, location, status, actor, notes)
+                repository.createExtinguisher(
+                    code = code,
+                    owner = owner,
+                    location = location,
+                    status = status,
+                    actor = actor,
+                    notes = notes,
+                    clienteId = null,
+                    sedeId = null
+                )
             }
             result.onSuccess {
                 _selectedExtinguisher.value = it
@@ -286,6 +358,38 @@ class MaintenanceViewModel : ViewModel() {
         }
     }
 
+    fun refrescarExtintores() {
+        viewModelScope.launch { repository.refreshFromBackend() }
+    }
+
+    fun extintorPorId(id: Int?): ExtinguisherAsset? =
+        id?.let { target -> repository.extinguishers.value.firstOrNull { it.id == target } }
+
+    fun registrarServicioRapido(
+        extintorId: Int,
+        tecnicoId: Int?,
+        ordenId: Int?,
+        observaciones: String?,
+        pesoInicial: String? = null,
+        onResult: (Result<ServiceRegistroResponse>) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val result = runCatching {
+                repository.registrarServicio(
+                    extintorId = extintorId,
+                    tecnicoId = tecnicoId,
+                    ordenId = ordenId,
+                    observaciones = observaciones,
+                    pesoInicial = pesoInicial
+                )
+            }
+            if (result.isSuccess) {
+                refreshAnalytics()
+            }
+            onResult(result)
+        }
+    }
+
     private fun refreshMonthlyReport(month: YearMonth) {
         _monthlyReport.value = repository.getMonthlyReport(month)
     }
@@ -308,6 +412,13 @@ fun currentMonth(): YearMonth {
     val now = today()
     return YearMonth(now.year, now.monthNumberCompat())
 }
+
+data class QrUiState(
+    val isLoading: Boolean = false,
+    val scanned: RemoteExtintor? = null,
+    val message: String? = null,
+    val error: String? = null
+)
 
 data class MaintenanceOverview(
     val activeWorkshop: Int = 0,

@@ -51,6 +51,8 @@ import org.example.project.ui.components.ExtintorCard
 import org.example.project.ui.components.ExtintorTopBar
 import org.example.project.ui.viewmodel.DashboardViewModel
 import org.example.project.ui.viewmodel.VentasViewModel
+import org.example.project.ui.viewmodel.MaintenanceViewModel
+import org.example.project.ui.viewmodel.StockCriticoViewModel
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.OutlinedButton
@@ -60,6 +62,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import org.example.project.ui.theme.ThemeManager
 import org.example.project.ui.theme.ThemePreference
 import androidx.compose.runtime.collectAsState
+import org.example.project.ui.viewmodel.UsuariosViewModel
+import org.example.project.utils.NotificationPreferences
+import org.example.project.data.api.HealthApiService
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,6 +73,7 @@ fun MainScreen(
 ) {
     var currentRoute by remember { mutableStateOf("dashboard") }
     val dashboardVm = remember { DashboardViewModel() }
+    val stockCriticoViewModel = remember { StockCriticoViewModel() }
     val ventasViewModel = remember {
         VentasViewModel(
             ventasRepository = VentasRepository(
@@ -79,14 +85,20 @@ fun MainScreen(
             )
         )
     }
+    val usuariosViewModel = remember { UsuariosViewModel() }
     var selectedVenta by remember { mutableStateOf<org.example.project.data.models.Venta?>(null) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var refreshSignal by remember { mutableStateOf(0) }
+    val maintenanceViewModel = remember { MaintenanceViewModel() }
+    var selectedExtintorId by remember { mutableStateOf<Int?>(null) }
+    var selectedExtintorCode by remember { mutableStateOf<String?>(null) }
+    var extintorBackRoute by remember { mutableStateOf("calendario") }
 
     val topBarTitle = when (currentRoute) {
         "dashboard" -> "Dashboard"
         "inventario" -> "Inventario"
+        "stockCritico" -> "Stock critico"
         "maintenance" -> "Mantencion"
         "kardex" -> "Kardex"
         "ventas" -> "Ventas"
@@ -97,6 +109,8 @@ fun MainScreen(
         "diagnostico" -> "Diagnostico"
         "test" -> "Prueba"
         "vencimientos" -> "Vencimientos"
+        "usuarios" -> "Usuarios"
+        "extintorDetalle" -> "Extintor"
         else -> currentRoute.replaceFirstChar { first -> if (first.isLowerCase()) first.titlecase() else first.toString() }
     }
 
@@ -166,15 +180,33 @@ fun MainScreen(
                     "dashboard" -> DashboardScreen(
                         viewModel = dashboardVm,
                         onNavigateToVencimientos = { currentRoute = "vencimientos" },
+                        onNavigateToStockCritico = { currentRoute = "stockCritico" },
                         refreshSignal = refreshSignal
                     )
                     "vencimientos" -> ExtintoresVencenScreen(
                         viewModel = dashboardVm,
-                        onBack = { currentRoute = "dashboard" }
+                        onBack = { currentRoute = "dashboard" },
+                        onOpenExtintor = { ext ->
+                            extintorBackRoute = "vencimientos"
+                            selectedExtintorId = ext.id
+                            selectedExtintorCode = ext.codigo
+                            currentRoute = "extintorDetalle"
+                        }
                     )
                     "inventario" -> InventarioContent(refreshSignal = refreshSignal)
+                    "stockCritico" -> StockCriticoScreen(
+                        viewModel = stockCriticoViewModel,
+                        refreshSignal = refreshSignal
+                    )
                     "kardex" -> KardexScreen(refreshSignal = refreshSignal)
-                    "maintenance" -> MaintenanceScreen(refreshSignal = refreshSignal)
+                    "maintenance" -> MaintenanceScreen(
+                        viewModel = maintenanceViewModel,
+                        refreshSignal = refreshSignal
+                    )
+                    "qr" -> QrScreen(
+                        refreshSignal = refreshSignal,
+                        viewModel = maintenanceViewModel
+                    )
                     "ventas" -> VentasScreen(
                         viewModel = ventasViewModel,
                         onNavigateToDetalleVenta = { venta ->
@@ -199,14 +231,37 @@ fun MainScreen(
                             currentRoute = "ventas"
                         }
                     }
-                    "calendario" -> CalendarScreen(refreshSignal = refreshSignal)
+                    "calendario" -> CalendarScreen(
+                        refreshSignal = refreshSignal,
+                        onOpenExtintor = { id, code ->
+                            extintorBackRoute = "calendario"
+                            selectedExtintorId = id
+                            selectedExtintorCode = code
+                            currentRoute = "extintorDetalle"
+                        }
+                    )
+                    "extintorDetalle" -> ExtintorDetailScreen(
+                        extintorId = selectedExtintorId,
+                        fallbackCode = selectedExtintorCode,
+                        viewModel = maintenanceViewModel,
+                        onBack = {
+                            currentRoute = extintorBackRoute
+                            selectedExtintorId = null
+                            selectedExtintorCode = null
+                        }
+                    )
                     "profile" -> ProfileScreen(onLogout = onLogout)
                     "settings" -> SettingsContent(refreshSignal = refreshSignal)
                     "diagnostico" -> NetworkDiagnosticContent(refreshSignal = refreshSignal)
                     "test" -> TestConnectionContent(refreshSignal = refreshSignal)
+                    "usuarios" -> UsuariosScreen(
+                        viewModel = usuariosViewModel,
+                        refreshSignal = refreshSignal
+                    )
                     else -> DashboardScreen(
                         viewModel = dashboardVm,
                         onNavigateToVencimientos = { currentRoute = "vencimientos" },
+                        onNavigateToStockCritico = { currentRoute = "stockCritico" },
                         refreshSignal = refreshSignal
                     )
                 }
@@ -243,9 +298,7 @@ private fun SettingsContent(
     val currencies = listOf("CLP", "USD")
     var selectedCurrency by remember { mutableStateOf(currencies.first()) }
 
-    var notifySales by remember { mutableStateOf(true) }
-    var stockAlerts by remember { mutableStateOf(true) }
-    var reminders by remember { mutableStateOf(true) }
+    val notificationSettings by NotificationPreferences.settings.collectAsState()
 
     Column(
         modifier = Modifier
@@ -304,18 +357,18 @@ private fun SettingsContent(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SettingsSwitchRow(
                     label = "Notificar ventas",
-                    checked = notifySales,
-                    onCheckedChange = { notifySales = it }
+                    checked = notificationSettings.notifySales,
+                    onCheckedChange = { NotificationPreferences.setNotifySales(it) }
                 )
                 SettingsSwitchRow(
                     label = "Alertas de stock",
-                    checked = stockAlerts,
-                    onCheckedChange = { stockAlerts = it }
+                    checked = notificationSettings.notifyStock,
+                    onCheckedChange = { NotificationPreferences.setNotifyStock(it) }
                 )
                 SettingsSwitchRow(
                     label = "Recordatorios",
-                    checked = reminders,
-                    onCheckedChange = { reminders = it }
+                    checked = notificationSettings.notifyReminders,
+                    onCheckedChange = { NotificationPreferences.setNotifyReminders(it) }
                 )
             }
         }
@@ -387,6 +440,39 @@ private fun SettingsDropdown(
 
 @Composable
 private fun NetworkDiagnosticContent(refreshSignal: Int) {
+    val healthApi = remember { HealthApiService() }
+    val scope = rememberCoroutineScope()
+    var isLoading by remember { mutableStateOf(true) }
+    var serverOk by remember { mutableStateOf(false) }
+    var dbOk by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf("Verificando conectividad...") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    fun runCheck() {
+        scope.launch {
+            isLoading = true
+            error = null
+            serverOk = false
+            dbOk = false
+            try {
+                serverOk = healthApi.ping()
+                dbOk = healthApi.db()
+                val info = healthApi.info()
+                message = if (info != null) {
+                    "API v${info.version} • ${info.environment} • DB: ${info.db}"
+                } else {
+                    "Servidor responde correctamente"
+                }
+            } catch (e: Exception) {
+                error = e.message ?: "No se pudo verificar"
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    LaunchedEffect(refreshSignal) { runCheck() }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -399,12 +485,39 @@ private fun NetworkDiagnosticContent(refreshSignal: Int) {
             fontWeight = FontWeight.SemiBold
         )
 
-        ExtintorCard(elevated = false) {
-            Text("Estado general", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Servidor principal operativo", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-            Text("Base de datos sincronizada", style = MaterialTheme.typography.bodyMedium)
-            Text("Última verificación: hace 2 minutos", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ExtintorCard(elevated = true) {
+            val allOk = serverOk && dbOk
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = if (allOk) "TODO OK" else "Atención requerida",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (allOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                )
+                Text(message, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = "Servidor: ${if (serverOk) "Disponible" else "No responde"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (serverOk) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = "Base de datos: ${if (dbOk) "Conectada" else "Sin conexión"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (dbOk) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error
+                )
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.padding(top = 4.dp))
+                }
+                error?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { runCheck() }) { Text("Reintentar") }
+                    OutlinedButton(onClick = { error = null; message = "Recuerda revisar túnel y puertos"; }) {
+                        Text("Mostrar ayuda")
+                    }
+                }
+            }
         }
 
         ExtintorCard(elevated = false) {
@@ -412,10 +525,10 @@ private fun NetworkDiagnosticContent(refreshSignal: Int) {
             Spacer(modifier = Modifier.height(8.dp))
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val steps = listOf(
-                    "Verificar que el servidor esté corriendo",
-                    "Confirmar que ambos dispositivos comparten red",
-                    "Probar conexión a internet",
-                    "Reiniciar servicios si persiste"
+                    "Validar que el servidor Ktor esté arriba (start-server...sh)",
+                    "Comprobar que ambos dispositivos estén en la misma red (192.168.x.x)",
+                    "Si usas túnel, verifica la URL y puertos abiertos",
+                    "Reiniciar servicios de base de datos si persiste"
                 )
                 steps.forEach { step ->
                     Text(text = step, style = MaterialTheme.typography.bodySmall)

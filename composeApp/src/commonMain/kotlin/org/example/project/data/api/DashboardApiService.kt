@@ -17,15 +17,23 @@ import org.example.project.data.model.DashboardCrecimientoBlock
 import org.example.project.data.model.DashboardInventarioBlock
 import org.example.project.data.model.DashboardExtintoresBlock
 import org.example.project.data.model.DashboardAlertasBlock
+import org.example.project.data.model.DashboardVentasRango
 import org.example.project.preferredBaseUrl
 import org.example.project.LOCAL_SERVER_URL
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import org.example.project.data.auth.AuthManager
 
 class DashboardApiService {
     private val http = HttpClient {
         install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
         install(Logging) { level = LogLevel.INFO }
+        install(io.ktor.client.plugins.DefaultRequest) {
+            val token = AuthManager.getToken()
+            if (token.isNotBlank()) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+            }
+        }
     }
     private val candidates = listOf(preferredBaseUrl(), LOCAL_SERVER_URL, "http://10.0.2.2:8080")
     private var working: String? = null
@@ -39,15 +47,17 @@ class DashboardApiService {
         throw IllegalStateException("Sin servidor disponible")
     }
 
-    suspend fun fetchDashboard(clienteId: Int? = null, sedeId: Int? = null): DashboardResponse {
+    suspend fun fetchDashboard(clienteId: Int? = null, sedeId: Int? = null, desde: String? = null, hasta: String? = null): DashboardResponse {
         val b = base()
         val url = buildString {
             append(b).append("/api/dashboard")
-            if (clienteId != null || sedeId != null) {
+            if (clienteId != null || sedeId != null || desde != null || hasta != null) {
                 append("?")
                 val p = mutableListOf<String>()
                 clienteId?.let { p += "clienteId=$it" }
                 sedeId?.let { p += "sedeId=$it" }
+                desde?.let { p += "desde=$it" }
+                hasta?.let { p += "hasta=$it" }
                 append(p.joinToString("&"))
             }
         }
@@ -102,14 +112,23 @@ private data class LegacyDashboardResponse(
 private fun LegacyDashboardResponse.toNew(): DashboardResponse {
     val scope = DashboardScope(
         clienteId = clienteId?.toIntOrNull(),
-        sedeId = sedeId?.toIntOrNull()
+        sedeId = sedeId?.toIntOrNull(),
+        desde = null,
+        hasta = null
     )
     val ventasBlock = DashboardVentasBlock(
         hoy = ventasMes,
         mes = ventasMes,
         ordenesHoy = extintoresVencen30,
         ticketPromedio = if (extintoresVencen30 > 0) ventasMes / extintoresVencen30 else ventasMes,
-        crecimiento = DashboardCrecimientoBlock(0, 0, 0, 0)
+        crecimiento = DashboardCrecimientoBlock(0, 0, 0, 0),
+        rango = DashboardVentasRango(
+            total = ventasMes,
+            ordenes = extintoresVencen30,
+            ticketPromedio = if (extintoresVencen30 > 0) ventasMes / extintoresVencen30 else ventasMes
+        ),
+        topProductos = emptyList(),
+        serie = emptyList()
     )
     val inventario = DashboardInventarioBlock(
         totalProductos = extintoresTotal,
@@ -124,7 +143,10 @@ private fun LegacyDashboardResponse.toNew(): DashboardResponse {
     )
     val alertas = DashboardAlertasBlock(
         pendientes = 0,
-        porTipo = emptyList()
+        porTipo = emptyList(),
+        stockCritico = stockCritico,
+        vencimientosProximos = extintoresVencen30,
+        movimientosPendientes = 0
     )
     return DashboardResponse(
         generatedAt = timestamp,

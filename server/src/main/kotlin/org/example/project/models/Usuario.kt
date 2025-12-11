@@ -14,7 +14,7 @@ object Usuarios : IntIdTable("usuarios") {
     val password = varchar("password", 255) // Hash de la contraseña
     val nombre = varchar("nombre", 100)
     val apellido = varchar("apellido", 100)
-    val rol = varchar("rol", 50).default("user") // user, admin, etc.
+    val rol = varchar("rol", 50).default("USER") // user, admin, etc.
     val activo = bool("activo").default(true)
     val fechaCreacion = datetime("fecha_creacion")
     val fechaUltimoAcceso = datetime("fecha_ultimo_acceso").nullable()
@@ -63,6 +63,31 @@ data class RegistroResponse(
     val success: Boolean,
     val message: String,
     val usuario: UsuarioResponse? = null
+)
+
+@Serializable
+data class CrearUsuarioRequest(
+    val email: String,
+    val password: String,
+    val nombre: String,
+    val apellido: String,
+    val rol: String,
+    val activo: Boolean = true
+)
+
+@Serializable
+data class ActualizarUsuarioRequest(
+    val email: String? = null,
+    val password: String? = null,
+    val nombre: String? = null,
+    val apellido: String? = null,
+    val rol: String? = null,
+    val activo: Boolean? = null
+)
+
+@Serializable
+data class CambiarEstadoUsuarioRequest(
+    val activo: Boolean
 )
 
 class Usuario(id: EntityID<Int>) : IntEntity(id) {

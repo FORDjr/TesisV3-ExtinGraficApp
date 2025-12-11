@@ -1,9 +1,9 @@
 package org.example.project
 
 // Configuración de URLs (solo cliente)
-const val LOCAL_SERVER_URL = "http://localhost:8080" // Desktop/iOS
-const val ANDROID_HOST_URL = "http://10.0.2.2:8080" // Emulador Android
-const val TUNNEL_BASE_URL = "" // URL funcional del túnel (fallback estático)
+const val LOCAL_SERVER_URL = "http://190.12.170.98:1609" // IP pública expuesta (desktop/iOS)
+const val ANDROID_HOST_URL = "http://190.12.170.98:1609" // Android usa la misma IP pública
+const val TUNNEL_BASE_URL = "https://shantae-nonimaginational-rima.ngrok-free.dev" // URL pública ngrok
 
 // Timeouts HTTP
 const val HTTP_CONNECTION_TIMEOUT = 30000L

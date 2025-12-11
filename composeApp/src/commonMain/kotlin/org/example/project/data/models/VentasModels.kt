@@ -5,19 +5,32 @@ import org.example.project.data.model.Producto
 import org.example.project.data.model.ProductoUI
 
 @Serializable
+data class ClienteFormal(
+    val nombre: String,
+    val rut: String? = null,
+    val direccion: String? = null,
+    val telefono: String? = null,
+    val email: String? = null
+)
+
+@Serializable
 data class Venta(
     val id: String = "",
     val numero: String = "",
     val cliente: String,
     val fecha: String,
+    val subtotal: Long = 0L,
+    val impuestos: Long = 0L,
     val total: Long,
     val descuento: Long = 0L,
     val estado: EstadoVenta,
     val metodoPago: MetodoPago,
     val vendedorId: Int? = null,
     val observaciones: String? = null,
+    val clienteFormal: ClienteFormal? = null,
+    val totalDevuelto: Long = 0L,
+    val saldo: Long = total - totalDevuelto,
     val productos: List<ProductoVenta> = emptyList(),
-    val subtotal: Long = productos.sumOf { it.subtotal },
     val correlativo: String = numero.ifBlank { id }
 )
 
@@ -27,7 +40,10 @@ data class ProductoVenta(
     val nombre: String,
     val cantidad: Int,
     val precio: Long,
-    val subtotal: Long
+    val subtotal: Long,
+    val descuento: Long = 0L,
+    val iva: Double = 0.0,
+    val devuelto: Int = 0
 )
 
 // Modelo para items en el carrito de venta (UI)
@@ -77,15 +93,22 @@ data class ProductoCarrito(
     val precio: Double,
     val cantidad: Int,
     val stock: Int,
+    val descuento: Double = 0.0,
+    val iva: Double = 19.0,
     val descripcion: String? = null
 ) {
     val subtotal: Double
-        get() = precio * cantidad
+        get() {
+            val base = precio * cantidad - descuento
+            val ivaMonto = (base * iva / 100.0).coerceAtLeast(0.0)
+            return base.coerceAtLeast(0.0) + ivaMonto
+        }
 }
 
 @Serializable
 data class NuevaVentaRequest(
     val cliente: String,
+    val clienteFormal: ClienteFormal? = null,
     val productos: List<ProductoVentaRequest>,
     val metodoPago: MetodoPago,
     val vendedorId: Int? = null,
@@ -96,12 +119,28 @@ data class NuevaVentaRequest(
 @Serializable
 data class ProductoVentaRequest(
     val id: Int,
+    val cantidad: Int,
+    val precio: Long? = null,
+    val descuento: Long? = null,
+    val iva: Double? = null
+)
+
+@Serializable
+data class ItemDevolucionRequest(
+    val productoId: Int,
     val cantidad: Int
+)
+
+@Serializable
+data class DevolucionParcialRequest(
+    val items: List<ItemDevolucionRequest>,
+    val motivo: String? = null
 )
 
 @Serializable
 data class VentaRequest(
     val cliente: String,
+    val clienteFormal: ClienteFormal? = null,
     val productos: List<ProductoVentaRequest>,
     val metodoPago: MetodoPago,
     val vendedorId: Int? = null,
@@ -147,6 +186,10 @@ enum class FiltroFecha {
 
 data class NuevaVentaUiState(
     val cliente: String = "",
+    val clienteRut: String = "",
+    val clienteDireccion: String = "",
+    val clienteTelefono: String = "",
+    val clienteEmail: String = "",
     val metodoPago: MetodoPago? = null,
     val observaciones: String = "",
     val productos: List<ProductoCarrito> = emptyList(),
@@ -160,7 +203,11 @@ data class NuevaVentaUiState(
         get() = productos.sumOf { it.subtotal }
 
     val isValid: Boolean
-        get() = cliente.isNotBlank() && metodoPago != null && productos.isNotEmpty()
+        get() = cliente.isNotBlank() &&
+            clienteRut.isNotBlank() &&
+            metodoPago != null &&
+            productos.isNotEmpty() &&
+            productos.all { it.cantidad > 0 && it.precio > 0 }
 }
 
 // Estados para UI de nuevo producto

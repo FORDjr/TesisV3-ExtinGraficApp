@@ -7,6 +7,8 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.example.project.models.*
 import org.example.project.services.AuthService
+import io.ktor.server.auth.*
+import org.example.project.security.userId
 
 fun Route.authRoutes() {
     route("/api/auth") {
@@ -58,6 +60,19 @@ fun Route.authRoutes() {
         // Verificar token (opcional)
         get("/verify") {
             call.respond(HttpStatusCode.OK, mapOf("message" to "Token válido"))
+        }
+
+        authenticate("auth-jwt") {
+            get("/me") {
+                val userId = call.userId()
+                if (userId == null) {
+                    call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Token inválido"))
+                    return@get
+                }
+                val user = AuthService.obtenerUsuario(userId)
+                if (user == null) call.respond(HttpStatusCode.NotFound, mapOf("error" to "Usuario no encontrado"))
+                else call.respond(user)
+            }
         }
     }
 }

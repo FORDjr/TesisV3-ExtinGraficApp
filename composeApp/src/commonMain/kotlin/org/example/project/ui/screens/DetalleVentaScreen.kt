@@ -21,25 +21,33 @@ import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,15 +55,19 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalUriHandler
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 import org.example.project.data.models.EstadoVenta
 import org.example.project.data.models.ProductoVenta
 import org.example.project.data.models.Venta
 import org.example.project.ui.components.EstadoBadge
 import org.example.project.ui.viewmodel.VentasViewModel
 import org.example.project.utils.Formatters.formatPesos
+import org.example.project.preferredBaseUrl
+import org.example.project.data.auth.AuthManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +79,13 @@ fun DetalleVentaScreen(
     val uiState by viewModel.uiState.collectAsState()
     val ventaActual = uiState.ventas.firstOrNull { it.id == venta.id } ?: venta
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val uriHandler = LocalUriHandler.current
+    val productosDisponiblesParaDevolver = ventaActual.productos.filter { it.devuelto < it.cantidad }
+    var showDevolucionDialog by remember { mutableStateOf(false) }
+    var productoSeleccionadoId by remember { mutableStateOf(productosDisponiblesParaDevolver.firstOrNull()?.id) }
+    var cantidadDevolucion by remember { mutableStateOf("1") }
+    var motivoDevolucion by remember { mutableStateOf("") }
 
     LaunchedEffect(uiState.successMessage) {
         uiState.successMessage?.let {
@@ -78,6 +97,68 @@ fun DetalleVentaScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
+        if (showDevolucionDialog) {
+            AlertDialog(
+                onDismissRequest = { showDevolucionDialog = false },
+                title = { Text("Devolución parcial") },
+                text = {
+                    val seleccion = productosDisponiblesParaDevolver.firstOrNull { it.id == productoSeleccionadoId }
+                    var expanded by remember { mutableStateOf(false) }
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Selecciona el producto y la cantidad a devolver")
+                        OutlinedButton(onClick = { expanded = true }) {
+                            Text(seleccion?.nombre ?: "Elegir producto")
+                        }
+                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            productosDisponiblesParaDevolver.forEach { prod ->
+                                DropdownMenuItem(
+                                    text = { Text("${prod.nombre} (disp. ${prod.cantidad - prod.devuelto})") },
+                                    onClick = {
+                                        productoSeleccionadoId = prod.id
+                                        val restante = (prod.cantidad - prod.devuelto).coerceAtLeast(1)
+                                        cantidadDevolucion = restante.toString()
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                        OutlinedTextField(
+                            value = cantidadDevolucion,
+                            onValueChange = { cantidadDevolucion = it },
+                            label = { Text("Cantidad a devolver") }
+                        )
+                        OutlinedTextField(
+                            value = motivoDevolucion,
+                            onValueChange = { motivoDevolucion = it },
+                            label = { Text("Motivo (opcional)") }
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val prodId = productoSeleccionadoId ?: return@TextButton
+                        val prod = productosDisponiblesParaDevolver.firstOrNull { it.id == prodId } ?: return@TextButton
+                        val cantidad = cantidadDevolucion.toIntOrNull() ?: 0
+                        val max = (prod.cantidad - prod.devuelto).coerceAtLeast(0)
+                        if (cantidad in 1..max) {
+                            viewModel.registrarDevolucionParcial(
+                                ventaActual.id,
+                                prodId,
+                                cantidad,
+                                motivoDevolucion.ifBlank { null }
+                            )
+                            showDevolucionDialog = false
+                        }
+                    }) {
+                        Text("Registrar")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDevolucionDialog = false }) { Text("Cancelar") }
+                }
+            )
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -136,6 +217,22 @@ fun DetalleVentaScreen(
                             titulo = "Cliente",
                             valor = ventaActual.cliente
                         )
+                        ventaActual.clienteFormal?.rut?.let {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            DetalleInfoRow(
+                                icono = Icons.AutoMirrored.Filled.Notes,
+                                titulo = "RUT",
+                                valor = it
+                            )
+                        }
+                        ventaActual.clienteFormal?.direccion?.let {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            DetalleInfoRow(
+                                icono = Icons.AutoMirrored.Filled.Notes,
+                                titulo = "Dirección",
+                                valor = it
+                            )
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
                         DetalleInfoRow(
                             icono = Icons.Default.CalendarToday,
@@ -198,7 +295,7 @@ fun DetalleVentaScreen(
                         ventaActual.productos.forEachIndexed { index, producto ->
                             ProductoDetalleCard(producto)
                             if (index < ventaActual.productos.size - 1) {
-                                Divider(
+                                HorizontalDivider(
                                     modifier = Modifier.padding(vertical = 12.dp),
                                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                                 )
@@ -222,17 +319,19 @@ fun DetalleVentaScreen(
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(bottom = 16.dp)
                         )
-
+                        val subtotalCalculado = if (ventaActual.subtotal > 0) ventaActual.subtotal else ventaActual.productos.sumOf { it.subtotal }
                         ResumenRow(
                             titulo = "Subtotal:",
-                            valor = formatPesos(ventaActual.total)
+                            valor = formatPesos(subtotalCalculado)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        ResumenRow(titulo = "Impuestos:", valor = "$0")
+                        ResumenRow(titulo = "Impuestos:", valor = formatPesos(ventaActual.impuestos))
                         Spacer(modifier = Modifier.height(8.dp))
-                        ResumenRow(titulo = "Descuento:", valor = "$0")
+                        ResumenRow(titulo = "Descuento:", valor = formatPesos(ventaActual.descuento))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        ResumenRow(titulo = "Devuelto:", valor = formatPesos(ventaActual.totalDevuelto))
 
-                        Divider(modifier = Modifier.padding(vertical = 12.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -251,6 +350,8 @@ fun DetalleVentaScreen(
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        ResumenRow(titulo = "Saldo:", valor = formatPesos(ventaActual.saldo))
                     }
                 }
             }
@@ -275,7 +376,12 @@ fun DetalleVentaScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedButton(
-                                onClick = { /* TODO imprimir */ },
+                                onClick = {
+                                    val token = AuthManager.getToken()
+                                    val tokenQuery = token.takeIf { it.isNotBlank() }?.let { "?token=$it" } ?: ""
+                                    val uri = "${preferredBaseUrl()}/api/ventas/${ventaActual.id}/comprobante/pdf$tokenQuery"
+                                    uriHandler.openUri(uri)
+                                },
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Icon(
@@ -325,8 +431,16 @@ fun DetalleVentaScreen(
                             }
                             EstadoVenta.COMPLETADA -> {
                                 Button(
-                                    onClick = { /* TODO devolución */ },
+                                    onClick = {
+                                        productoSeleccionadoId = productosDisponiblesParaDevolver.firstOrNull()?.id
+                                        val cantidadDefault = productosDisponiblesParaDevolver.firstOrNull()?.let {
+                                            (it.cantidad - it.devuelto).coerceAtLeast(1)
+                                        } ?: 1
+                                        cantidadDevolucion = cantidadDefault.toString()
+                                        showDevolucionDialog = true
+                                    },
                                     modifier = Modifier.fillMaxWidth(),
+                                    enabled = productosDisponiblesParaDevolver.isNotEmpty(),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = MaterialTheme.colorScheme.secondary
                                     )
@@ -401,6 +515,27 @@ fun ProductoDetalleCard(producto: ProductoVenta) {
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (producto.descuento > 0) {
+                Text(
+                    text = "Descuento: ${formatPesos(producto.descuento)}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (producto.iva > 0) {
+                Text(
+                    text = "IVA: ${producto.iva}%",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (producto.devuelto > 0) {
+                Text(
+                    text = "Devuelto: ${producto.devuelto}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         Text(
             text = formatPesos(producto.subtotal),

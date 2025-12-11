@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -25,7 +26,8 @@ import org.example.project.ui.viewmodel.DashboardViewModel
 @Composable
 fun ExtintoresVencenScreen(
     viewModel: DashboardViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenExtintor: (ExtintorVencimiento) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     val items = state.extintoresVencimientoLista
@@ -58,7 +60,8 @@ fun ExtintoresVencenScreen(
                 items(items, key = { it.id }) { ext ->
                     ExtintorVencimientoCard(
                         item = ext,
-                        onSchedule = { viewModel.agendarVisita(ext.id) }
+                        onSchedule = { viewModel.agendarVisita(ext.id) },
+                        onOpen = { onOpenExtintor(ext) }
                     )
                 }
             }
@@ -69,9 +72,14 @@ fun ExtintoresVencenScreen(
 @Composable
 private fun ExtintorVencimientoCard(
     item: ExtintorVencimiento,
-    onSchedule: () -> Unit
+    onSchedule: () -> Unit,
+    onOpen: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen)
+    ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(item.codigo, style = MaterialTheme.typography.titleMedium)
             Text("Cliente: ${item.cliente}", style = MaterialTheme.typography.bodySmall)

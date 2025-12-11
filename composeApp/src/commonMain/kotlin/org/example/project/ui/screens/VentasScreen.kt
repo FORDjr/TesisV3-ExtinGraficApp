@@ -38,6 +38,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -53,6 +59,7 @@ import org.example.project.ui.components.ExtintorCard
 import org.example.project.ui.components.ExtintorChip
 import org.example.project.ui.components.ExtintorTextField
 import org.example.project.ui.components.ButtonVariant
+import org.example.project.ui.viewmodel.VentasInputFormatter
 import org.example.project.ui.viewmodel.VentasViewModel
 import org.example.project.utils.Formatters.formatPesos
 import org.example.project.data.model.Producto
@@ -176,12 +183,19 @@ fun VentasScreen(
                 state = nuevaVentaState,
                 onDismiss = { showNuevaVenta = false },
                 onClienteChange = viewModel::actualizarCliente,
+                onRutChange = viewModel::actualizarClienteRut,
+                onDireccionChange = viewModel::actualizarClienteDireccion,
+                onTelefonoChange = viewModel::actualizarClienteTelefono,
+                onEmailChange = viewModel::actualizarClienteEmail,
                 onMetodoPagoChange = viewModel::actualizarMetodoPago,
                 onObservacionesChange = viewModel::actualizarObservaciones,
                 onBuscarProducto = viewModel::buscarProductos,
                 onAgregarProducto = { ui -> viewModel.agregarProductoAVenta(ui.toProducto()) },
                 onCambiarCantidad = viewModel::actualizarCantidadProducto,
                 onQuitarProducto = viewModel::removerProductoDelCarrito,
+                onPrecioChange = viewModel::actualizarPrecioProducto,
+                onDescuentoChange = viewModel::actualizarDescuentoProducto,
+                onIvaChange = viewModel::actualizarIvaProducto,
                 onConfirm = { viewModel.crearVenta() }
             )
         }
@@ -260,12 +274,19 @@ private fun NuevaVentaDialog(
     state: org.example.project.data.models.NuevaVentaUiState,
     onDismiss: () -> Unit,
     onClienteChange: (String) -> Unit,
+    onRutChange: (String) -> Unit,
+    onDireccionChange: (String) -> Unit,
+    onTelefonoChange: (String) -> Unit,
+    onEmailChange: (String) -> Unit,
     onMetodoPagoChange: (MetodoPago) -> Unit,
     onObservacionesChange: (String) -> Unit,
     onBuscarProducto: (String) -> Unit,
     onAgregarProducto: (ProductoUI) -> Unit,
     onCambiarCantidad: (Int, Int) -> Unit,
     onQuitarProducto: (Int) -> Unit,
+    onPrecioChange: (Int, Double) -> Unit,
+    onDescuentoChange: (Int, Double) -> Unit,
+    onIvaChange: (Int, Double) -> Unit,
     onConfirm: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -315,6 +336,51 @@ private fun NuevaVentaDialog(
                     placeholder = "Ej: Camila Reyes"
                 )
 
+                ExtintorTextField(
+                    value = state.clienteRut,
+                    onValueChange = onRutChange,
+                    label = "RUT / Identificación",
+                    placeholder = "76.123.456-7",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    visualTransformation = RutVisualTransformation,
+                    isError = state.clienteRut.isNotBlank() && !VentasInputFormatter.isRutValido(state.clienteRut),
+                    errorMessage = "RUT inválido"
+                )
+
+                ExtintorTextField(
+                    value = state.clienteDireccion,
+                    onValueChange = onDireccionChange,
+                    label = "Dirección",
+                    placeholder = "Calle, número, comuna"
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    ExtintorTextField(
+                        value = state.clienteTelefono,
+                        onValueChange = onTelefonoChange,
+                        label = "Teléfono",
+                        placeholder = "+56 9 ...",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.weight(1f),
+                        visualTransformation = PhoneVisualTransformation,
+                        isError = state.clienteTelefono.isNotBlank() && !VentasInputFormatter.isTelefonoValido(state.clienteTelefono),
+                        errorMessage = "Debes ingresar 9 dígitos iniciando en 9"
+                    )
+                    ExtintorTextField(
+                        value = state.clienteEmail,
+                        onValueChange = onEmailChange,
+                        label = "Email",
+                        placeholder = "correo@dominio.cl",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.weight(1f),
+                        isError = state.clienteEmail.isNotBlank() && !VentasInputFormatter.isEmailValido(state.clienteEmail),
+                        errorMessage = "Formato: correo@dominio.cl"
+                    )
+                }
+                
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         text = "Método de pago",
@@ -359,11 +425,32 @@ private fun NuevaVentaDialog(
                                         maxLines = 2,
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
-                                    Text(
-                                        text = formatPesos(item.precio.toLong()),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        ExtintorTextField(
+                                            value = item.precio.toString(),
+                                            onValueChange = { value ->
+                                                value.toDoubleOrNull()?.let { onPrecioChange(item.id, it) }
+                                            },
+                                            label = "Precio",
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        ExtintorTextField(
+                                            value = item.descuento.toString(),
+                                            onValueChange = { value ->
+                                                value.toDoubleOrNull()?.let { onDescuentoChange(item.id, it) }
+                                            },
+                                            label = "Descuento",
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        ExtintorTextField(
+                                            value = item.iva.toString(),
+                                            onValueChange = { value ->
+                                                value.toDoubleOrNull()?.let { onIvaChange(item.id, it) }
+                                            },
+                                            label = "IVA %",
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically,
@@ -392,6 +479,11 @@ private fun NuevaVentaDialog(
                                             Text("Quitar")
                                         }
                                     }
+                                    Text(
+                                        text = "Subtotal: ${formatPesos(item.subtotal.toLong())}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
                             Text(
@@ -487,6 +579,62 @@ private fun NuevaVentaDialog(
             }
         }
     }
+}
+
+private val PhoneVisualTransformation = VisualTransformation { text ->
+    val raw = text.text.filter { it.isDigit() }.take(9)
+    if (raw.isEmpty()) return@VisualTransformation TransformedText(AnnotatedString(""), OffsetMapping.Identity)
+    val builder = StringBuilder()
+    val positions = mutableListOf<Int>() // posiciones transformadas para cada char original
+    raw.forEachIndexed { index, c ->
+        when (index) {
+            1 -> builder.append(' ')
+            5 -> builder.append(' ')
+        }
+        positions += builder.length
+        builder.append(c)
+    }
+    val out = builder.toString()
+    val offsetMapping = object : OffsetMapping {
+        override fun originalToTransformed(offset: Int): Int {
+            if (offset <= 0) return 0
+            if (offset > positions.size) return out.length
+            return positions[offset - 1] + 1
+        }
+
+        override fun transformedToOriginal(offset: Int): Int {
+            var rawIndex = 0
+            while (rawIndex < positions.size && positions[rawIndex] < offset) rawIndex++
+            return rawIndex
+        }
+    }
+    TransformedText(AnnotatedString(out), offsetMapping)
+}
+
+private val RutVisualTransformation = VisualTransformation { text ->
+    val raw = text.text.uppercase().filter { it.isDigit() || it == 'K' }.take(9)
+    if (raw.length <= 1) return@VisualTransformation TransformedText(AnnotatedString(raw), OffsetMapping.Identity)
+    val body = raw.dropLast(1)
+    val dv = raw.last()
+    val formatted = "$body-$dv"
+    val bodyLen = body.length
+
+    val offsetMapping = object : OffsetMapping {
+        override fun originalToTransformed(offset: Int): Int {
+            return when {
+                offset <= bodyLen -> offset
+                else -> (offset + 1).coerceAtMost(formatted.length)
+            }
+        }
+
+        override fun transformedToOriginal(offset: Int): Int {
+            return when {
+                offset <= bodyLen -> offset
+                else -> (offset - 1).coerceAtLeast(0).coerceAtMost(raw.length)
+            }
+        }
+    }
+    TransformedText(AnnotatedString(formatted), offsetMapping)
 }
 
 private fun ProductoUI.toProducto(): Producto = Producto(

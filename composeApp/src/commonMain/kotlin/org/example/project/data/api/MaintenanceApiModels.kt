@@ -11,9 +11,12 @@ data class RemoteExtintor(
     val tipo: String,
     val agente: String,
     val capacidad: String,
+    val ubicacion: String? = null,
+    val estadoLogistico: String? = null,
     val fechaProximoVencimiento: String? = null,
     val diasParaVencer: Long? = null,
-    val color: String = "verde"
+    val color: String = "verde",
+    val estado: String? = null
 )
 
 @Serializable
@@ -42,4 +45,47 @@ data class RemoteSede(
     val nombre: String,
     val direccion: String? = null,
     val comuna: String? = null
+)
+
+@Serializable
+data class ItemUsoProductoDto(val productoId: Int, val cantidad: Int)
+
+@Serializable
+data class CrearServiceRegistroRequest(
+    val extintorId: Int,
+    val ordenId: Int? = null,
+    val tecnicoId: Int? = null,
+    val pesoInicial: String? = null,
+    val observaciones: String? = null,
+    val productos: List<ItemUsoProductoDto> = emptyList()
+)
+
+@Serializable
+data class ServiceRegistroResponse(
+    val id: Int,
+    val extintorId: Int,
+    val ordenId: Int? = null,
+    val tecnicoId: Int? = null,
+    val fechaRegistro: String,
+    val fechaProximoVencimiento: String? = null,
+    val numeroCertificado: String? = null,
+    val productos: List<ItemUsoProductoDto> = emptyList()
+)
+
+@Serializable
+data class CrearExtintorRequest(
+    val codigoQr: String,
+    val clienteId: Int,
+    val sedeId: Int? = null,
+    val tipo: String,
+    val agente: String,
+    val capacidad: String,
+    val ubicacion: String? = null,
+    val estadoLogistico: String? = null
+)
+
+@Serializable
+data class ActualizarExtintorRequest(
+    val ubicacion: String? = null,
+    val estadoLogistico: String? = null
 )

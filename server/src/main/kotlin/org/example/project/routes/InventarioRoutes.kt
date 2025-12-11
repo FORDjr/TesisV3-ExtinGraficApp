@@ -9,6 +9,8 @@ import org.example.project.models.ActualizarEstadoProductoRequest
 import org.example.project.models.EstadoProducto
 import org.example.project.models.ProductoRequest
 import org.example.project.services.InventarioService
+import org.example.project.security.requireRole
+import org.example.project.security.UserRole
 
 fun Route.inventarioRoutes() {
     val inventarioService = InventarioService()
@@ -17,6 +19,7 @@ fun Route.inventarioRoutes() {
 
         // GET /api/inventario - Obtener todos los productos
         get {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.VENTAS, UserRole.SUPERVISOR)) return@get
             try {
                 val search = call.request.queryParameters["search"] ?: call.request.queryParameters["q"]
                 val codigo = call.request.queryParameters["codigo"]
@@ -88,6 +91,7 @@ fun Route.inventarioRoutes() {
 
         // GET /api/inventario/categorias - Lista de categorías únicas
         get("/categorias") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.VENTAS, UserRole.SUPERVISOR)) return@get
             try {
                 val incluirInactivos = call.request.queryParameters["incluirInactivos"]?.toBooleanStrictOrNull() ?: false
                 val categorias = inventarioService.obtenerCategorias(onlyActive = !incluirInactivos)
@@ -99,6 +103,7 @@ fun Route.inventarioRoutes() {
 
         // POST /api/inventario - Crear un nuevo producto
         post {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@post
             try {
                 println("=== DEBUG POST /api/inventario ===")
 
@@ -149,6 +154,7 @@ fun Route.inventarioRoutes() {
 
         // GET /api/inventario/{id} - Obtener un producto por ID
         get("/{id}") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.VENTAS, UserRole.SUPERVISOR)) return@get
             try {
                 val id = call.parameters["id"]?.toIntOrNull()
                 if (id == null) {
@@ -169,6 +175,7 @@ fun Route.inventarioRoutes() {
 
         // PUT /api/inventario/{id} - Actualizar un producto
         put("/{id}") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@put
             try {
                 val id = call.parameters["id"]?.toIntOrNull()
                 if (id == null) {
@@ -190,6 +197,7 @@ fun Route.inventarioRoutes() {
 
         // DELETE /api/inventario/{id} - Eliminar un producto
         delete("/{id}") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@delete
             try {
                 val id = call.parameters["id"]?.toIntOrNull()
                 if (id == null) {
@@ -210,6 +218,7 @@ fun Route.inventarioRoutes() {
 
         // PATCH /api/inventario/{id}/stock - Actualizar solo el stock de un producto
         patch("/{id}/stock") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@patch
             try {
                 val id = call.parameters["id"]?.toIntOrNull()
                 if (id == null) {
@@ -237,6 +246,7 @@ fun Route.inventarioRoutes() {
 
         // PATCH /api/inventario/{id}/estado - Cambiar estado ACTIVO/INACTIVO
         patch("/{id}/estado") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@patch
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
@@ -258,6 +268,7 @@ fun Route.inventarioRoutes() {
 
         // GET críticos
         get("/criticos") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.VENTAS, UserRole.SUPERVISOR)) return@get
             try {
                 val criticos = inventarioService.productosCriticos()
                 call.respond(HttpStatusCode.OK, criticos)

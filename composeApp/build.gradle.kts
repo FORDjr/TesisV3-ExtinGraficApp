@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 
-fun Project.resolveServerBaseUrl(default: String = "http://10.0.2.2:8080"): String {
+fun Project.resolveServerBaseUrl(default: String = "https://shantae-nonimaginational-rima.ngrok-free.dev"): String {
     val props = Properties()
     val localFile = rootProject.file("local.properties")
     if (localFile.exists()) {
@@ -30,6 +30,7 @@ kotlin {
         @OptIn(ExperimentalKotlinGradlePluginApi::class)
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
+            freeCompilerArgs.add("-Xexpect-actual-classes")
         }
     }
 

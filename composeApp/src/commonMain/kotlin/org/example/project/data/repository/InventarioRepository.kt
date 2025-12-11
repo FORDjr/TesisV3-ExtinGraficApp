@@ -9,6 +9,9 @@ import org.example.project.data.model.InventarioQuery
 import org.example.project.data.model.ProductoRequest
 import org.example.project.data.model.toUI
 import org.example.project.data.model.ProductoUI
+import org.example.project.data.sync.PendingSyncManager
+import org.example.project.utils.NotificationPreferences
+import org.example.project.utils.Notifier
 
 class InventarioRepository {
 
@@ -45,7 +48,10 @@ class InventarioRepository {
             _isLoading.value = true
             _error.value = null
             val ok = apiService.verificarConexion()
-            if (ok) _offlineMode.value = false
+            if (ok) {
+                _offlineMode.value = false
+                runCatching { PendingSyncManager.processQueue() }
+            }
             ok
         } catch (e: Exception) {
             _error.value = "Error de conexión: ${e.message}"
@@ -171,15 +177,22 @@ class InventarioRepository {
             val productoActualizado = apiService.actualizarStock(id, cantidad)
 
             if (productoActualizado != null) {
+                val productoUI = productoActualizado.toUI()
                 // Actualizar solo el producto específico en la lista local
                 val lista = _productos.value.toMutableList()
                 val idx = lista.indexOfFirst { it.id == id }
 
                 if (idx != -1) {
-                    lista[idx] = productoActualizado.toUI()
-                    _productos.value = lista
+                    lista[idx] = productoUI
+                } else {
+                    lista.add(productoUI)
                 }
+                _productos.value = lista
                 actualizarCategoriasDesdeProductos()
+
+                if (NotificationPreferences.settings.value.notifyStock && productoUI.esBajoStock) {
+                    Notifier.notify("Stock crítico", "${productoUI.nombre} en ${productoUI.stock} unidades")
+                }
 
                 true
             } else {
@@ -190,6 +203,15 @@ class InventarioRepository {
             _error.value = "Error al actualizar stock: ${e.message}"
             false
         } finally { _isLoading.value = false }
+    }
+
+    suspend fun obtenerCriticos(): List<ProductoUI> {
+        return try {
+            apiService.obtenerCriticos().map { it.toUI() }
+        } catch (e: Exception) {
+            _error.value = e.message
+            emptyList()
+        }
     }
 
     /**

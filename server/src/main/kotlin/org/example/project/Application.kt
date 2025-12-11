@@ -8,10 +8,12 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.Serializable
 import org.example.project.config.DatabaseConfig
 import org.example.project.routes.authRoutes
 import org.example.project.routes.inventarioRoutes
 import org.example.project.routes.ventasRoutes
+import org.example.project.routes.ventasPublicRoutes
 import io.ktor.server.plugins.cors.routing.*
 import io.ktor.http.*
 import io.ktor.server.plugins.callid.*
@@ -22,8 +24,15 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.example.project.routes.extintoresRoutes
 import org.example.project.routes.dashboardRoutes
 import org.example.project.routes.movimientosRoutes
+import org.example.project.routes.movimientosPublicRoutes
 import org.example.project.services.AlertScheduler
 import org.example.project.services.ExtintoresService
+import org.example.project.routes.integracionesRoutes
+import org.example.project.JWT_REALM
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
+import org.example.project.security.JwtConfig
+import org.example.project.routes.usuariosRoutes
 
 fun main() {
     println("🚀 Iniciando servidor en puerto $SERVER_PORT")
@@ -56,8 +65,25 @@ fun Application.module() {
                 prettyPrint       = true
                 isLenient         = true
                 ignoreUnknownKeys = true
+                encodeDefaults    = true
             }
         )
+    }
+
+    /* ---------- Auth JWT ---------- */
+    install(Authentication) {
+        jwt("auth-jwt") {
+            realm = JWT_REALM
+            verifier(JwtConfig.verifier())
+            validate { credential ->
+                val role = credential.payload.getClaim("role").asString()
+                val userId = credential.payload.getClaim("userId").asInt()
+                if (role.isNullOrBlank() || userId == null) null else JWTPrincipal(credential.payload)
+            }
+            challenge { _, _ ->
+                call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Token inválido o expirado"))
+            }
+        }
     }
 
     /* ---------- Observabilidad / Logging ---------- */
@@ -100,18 +126,30 @@ fun Application.module() {
         // Rutas de autenticación
         authRoutes()
 
-        // Rutas de inventario
-        inventarioRoutes()
-        movimientosRoutes()
+        // Rutas de integraciones externas con API key
+        integracionesRoutes()
 
-        // Rutas de ventas
-        ventasRoutes()
+        // Export/descargas con token en query (sin exigir header)
+        ventasPublicRoutes()
+        movimientosPublicRoutes()
 
-        // Rutas de extintores
-        extintoresRoutes()
+        authenticate("auth-jwt") {
+            // Rutas de inventario
+            inventarioRoutes()
+            movimientosRoutes()
 
-        // Rutas de dashboard
-        dashboardRoutes()
+            // Rutas de ventas
+            ventasRoutes()
+
+            // Rutas de extintores
+            extintoresRoutes()
+
+            // Rutas de dashboard
+            dashboardRoutes()
+
+            // Rutas de usuarios
+            usuariosRoutes()
+        }
 
         // Health con GET y HEAD
         route("/health") {
@@ -130,14 +168,17 @@ fun Application.module() {
                 val dbOk = try {
                     transaction { 1 }; true
                 } catch (_: Exception) { false }
-                val payload = mapOf(
-                    "status" to "OK",
-                    "version" to API_VERSION,
-                    "environment" to (if (IS_PRODUCTION) "production" else "development"),
-                    "db" to (if (dbOk) "UP" else "DOWN"),
-                    "timestamp" to System.currentTimeMillis()
+                val payload = HealthInfo(
+                    status = "OK",
+                    version = API_VERSION,
+                    environment = if (IS_PRODUCTION) "production" else "development",
+                    db = if (dbOk) "UP" else "DOWN",
+                    timestamp = System.currentTimeMillis()
                 )
-                call.respond(payload)
+                call.respondText(
+                    text = Json.encodeToString(HealthInfo.serializer(), payload),
+                    contentType = ContentType.Application.Json
+                )
             }
         }
 
@@ -146,3 +187,12 @@ fun Application.module() {
         }
     }
 }
+
+@Serializable
+private data class HealthInfo(
+    val status: String,
+    val version: String,
+    val environment: String,
+    val db: String,
+    val timestamp: Long
+)

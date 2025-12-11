@@ -13,10 +13,12 @@ import org.example.project.data.model.ExtintorResponse
 import org.example.project.data.model.CalendarEvent
 import org.example.project.preferredBaseUrl
 import org.example.project.LOCAL_SERVER_URL
+import org.example.project.data.auth.AuthManager
 
 class CalendarApiService {
     companion object {
         private const val EXTINTORES_PATH = "/api/extintores"
+        private const val AGENDA_PATH = "/api/agenda"
         private const val ALERTAS_PATH = "/api/alertas" // opcional futuro
         private val EMULATOR_URL = "http://10.0.2.2:8080"
         private val CONNECTION_URLS: List<String> = listOf(
@@ -43,6 +45,12 @@ class CalendarApiService {
             logger = Logger.DEFAULT
             level = LogLevel.INFO
         }
+        install(io.ktor.client.plugins.DefaultRequest) {
+            val token = AuthManager.getToken()
+            if (token.isNotBlank()) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+            }
+        }
     }
 
     private var workingUrl: String? = null
@@ -56,7 +64,11 @@ class CalendarApiService {
         workingUrl?.let { if (testConnectionQuick(it)) return it else workingUrl = null }
         for (u in CONNECTION_URLS) {
             if (testConnectionQuick(u)) { workingUrl = u; return u }
-            // fallback probando directamente extintores
+            // fallback probando directamente agenda/extintores
+            try {
+                val rAgenda = httpClient.get("$u$AGENDA_PATH")
+                if (rAgenda.status.isSuccess()) { workingUrl = u; return u }
+            } catch (_: Exception) {}
             try {
                 val r = httpClient.get("$u$EXTINTORES_PATH")
                 if (r.status.isSuccess()) { workingUrl = u; return u }
@@ -84,21 +96,63 @@ class CalendarApiService {
     }
 
     suspend fun obtenerEventosCalendario(): List<CalendarEvent> {
-        val extintores = obtenerExtintores()
-        return extintores.filter { it.fechaProximoVencimiento != null }.map {
-            val fecha = it.fechaProximoVencimiento ?: ""
-            CalendarEvent(
-                id = it.id,
-                title = "Venc. ${it.codigoQr}",
-                date = fecha.take(10),
-                rawDateTime = fecha,
-                daysToExpire = it.diasParaVencer,
-                color = it.color,
-                type = "EXTINTOR"
-            )
+        return withUrl { url ->
+            val agenda = runCatching {
+                httpClient.get("$url$AGENDA_PATH").body<List<CalendarEvent>>()
+            }.getOrElse {
+                println("CalendarApiService agenda fallback: ${it.message}")
+                emptyList()
+            }
+            if (agenda.isNotEmpty()) return@withUrl agenda
+            val extintores = runCatching { httpClient.get("$url$EXTINTORES_PATH").body<List<ExtintorResponse>>() }
+                .getOrElse { emptyList() }
+            extintoresAEventos(extintores)
         }
     }
 
+    suspend fun marcarAlertaAtendida(alertaId: Int): Boolean = withUrl { url ->
+        try {
+            val resp = httpClient.patch("$url$ALERTAS_PATH/$alertaId/enviada") {
+                header(HttpHeaders.ContentType, ContentType.Application.Json)
+            }
+            resp.status.isSuccess()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    suspend fun recalcularExtintores(): Boolean = withUrl { url ->
+        try {
+            val resp = httpClient.post("$url/api/extintores/recalcular")
+            resp.status.isSuccess()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun extintoresAEventos(extintores: List<ExtintorResponse>): List<CalendarEvent> =
+        extintores.filter { it.fechaProximoVencimiento != null }.map { ext ->
+            val fecha = ext.fechaProximoVencimiento ?: ""
+            val descripcion = buildString {
+                append("Vence el ${fecha.take(10)}")
+                ext.ubicacion?.let { loc -> append(" • $loc") }
+            }
+            CalendarEvent(
+                id = ext.id,
+                title = "Venc. ${ext.codigoQr}",
+                date = fecha.take(10),
+                rawDateTime = fecha,
+                daysToExpire = ext.diasParaVencer,
+                color = ext.color,
+                type = "EXTINTOR",
+                referenceId = ext.id,
+                estado = ext.estado,
+                cliente = null,
+                sede = ext.ubicacion,
+                descripcion = descripcion,
+                codigo = ext.codigoQr
+            )
+        }
+
     fun close() = httpClient.close()
 }
-

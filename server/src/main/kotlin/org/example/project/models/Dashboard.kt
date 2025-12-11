@@ -14,7 +14,9 @@ data class DashboardSummaryResponse(
 @Serializable
 data class DashboardScope(
     val clienteId: Int? = null,
-    val sedeId: Int? = null
+    val sedeId: Int? = null,
+    val desde: String? = null,
+    val hasta: String? = null
 )
 
 @Serializable
@@ -23,7 +25,10 @@ data class DashboardVentasBlock(
     val mes: Long,
     val ordenesHoy: Int,
     val ticketPromedio: Long,
-    val crecimiento: DashboardCrecimientoBlock
+    val crecimiento: DashboardCrecimientoBlock,
+    val rango: DashboardVentasRango = DashboardVentasRango(),
+    val topProductos: List<DashboardTopProducto> = emptyList(),
+    val serie: List<DashboardSerieValor> = emptyList()
 )
 
 @Serializable
@@ -32,6 +37,27 @@ data class DashboardCrecimientoBlock(
     val ordenesPct: Int,
     val ticketPct: Int,
     val mesPct: Int
+)
+
+@Serializable
+data class DashboardVentasRango(
+    val total: Long = 0,
+    val ordenes: Int = 0,
+    val ticketPromedio: Long = 0
+)
+
+@Serializable
+data class DashboardTopProducto(
+    val productoId: Int,
+    val nombre: String,
+    val cantidad: Int,
+    val monto: Long
+)
+
+@Serializable
+data class DashboardSerieValor(
+    val label: String,
+    val valor: Long
 )
 
 @Serializable
@@ -53,7 +79,10 @@ data class DashboardExtintoresBlock(
 @Serializable
 data class DashboardAlertasBlock(
     val pendientes: Int,
-    val porTipo: List<DashboardAlertasPorTipo>
+    val porTipo: List<DashboardAlertasPorTipo>,
+    val stockCritico: Int = 0,
+    val vencimientosProximos: Int = 0,
+    val movimientosPendientes: Int = 0
 )
 
 @Serializable

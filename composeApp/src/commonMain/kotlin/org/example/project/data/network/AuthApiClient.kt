@@ -10,6 +10,7 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
 import org.example.project.data.models.*
 import org.example.project.preferredBaseUrl
+import org.example.project.data.auth.AuthManager
 
 class AuthApiClient {
 
@@ -24,6 +25,12 @@ class AuthApiClient {
         }
         install(Logging) {
             level = LogLevel.INFO
+        }
+        install(io.ktor.client.plugins.DefaultRequest) {
+            val token = AuthManager.getToken()
+            if (token.isNotBlank()) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+            }
         }
     }
 
@@ -59,7 +66,7 @@ class AuthApiClient {
     // Obtener perfil de usuario
     suspend fun obtenerPerfil(userId: Int): Result<UsuarioResponse> {
         return try {
-            val response: UsuarioResponse = client.get("$baseUrl/auth/profile/$userId").body()
+            val response: UsuarioResponse = client.get("$baseUrl/api/auth/me").body()
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)

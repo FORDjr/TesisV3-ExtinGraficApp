@@ -3,7 +3,7 @@ services:
     build:
       context: ./server
     ports:
-      - "8080:8080"
+      - "1609:8080"
     environment:
       DB_HOST: db
       DB_PORT: 5432
@@ -18,7 +18,7 @@ services:
   db:
     image: postgres:13
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: dpozas_bd
       POSTGRES_USER: dpozas

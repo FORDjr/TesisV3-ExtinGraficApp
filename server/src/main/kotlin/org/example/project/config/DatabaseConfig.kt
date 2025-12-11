@@ -62,7 +62,8 @@ object DatabaseConfig {
                 ServiceRegistros,
                 ServiceRegistroProductos,
                 Alertas,
-                MovimientosInventario
+                MovimientosInventario,
+                Integraciones
             )
             // Intentar agregar columna stock_minimo si no existe (PostgreSQL)
             try {
@@ -104,8 +105,27 @@ object DatabaseConfig {
                 println("[DB][WARN] No se pudieron agregar columnas de ventas: ${e.message}")
             }
             try {
+                TransactionManager.current().exec("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS cliente_rut VARCHAR(50)")
+                TransactionManager.current().exec("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS cliente_direccion VARCHAR(255)")
+                TransactionManager.current().exec("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS cliente_telefono VARCHAR(80)")
+                TransactionManager.current().exec("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS cliente_email VARCHAR(120)")
+                TransactionManager.current().exec("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS subtotal BIGINT DEFAULT 0")
+                TransactionManager.current().exec("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS impuestos BIGINT DEFAULT 0")
+            } catch (e: Exception) {
+                println("[DB][WARN] No se pudieron agregar columnas de cliente/impuestos en ventas: ${e.message}")
+            }
+            try {
+                TransactionManager.current().exec("ALTER TABLE venta_productos ADD COLUMN IF NOT EXISTS descuento BIGINT DEFAULT 0")
+                TransactionManager.current().exec("ALTER TABLE venta_productos ADD COLUMN IF NOT EXISTS iva DOUBLE PRECISION DEFAULT 0")
+                TransactionManager.current().exec("ALTER TABLE venta_productos ADD COLUMN IF NOT EXISTS devuelto INTEGER DEFAULT 0")
+            } catch (e: Exception) {
+                println("[DB][WARN] No se pudieron agregar columnas de descuento/iva/devuelto en venta_productos: ${e.message}")
+            }
+            try {
                 TransactionManager.current().exec("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intentos_fallidos INTEGER DEFAULT 0")
                 TransactionManager.current().exec("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bloqueado_hasta TIMESTAMP")
+                TransactionManager.current().exec("ALTER TABLE usuarios ALTER COLUMN rol SET DEFAULT 'USER'")
+                TransactionManager.current().exec("UPDATE usuarios SET rol = UPPER(rol)")
             } catch (e: Exception) {
                 println("[DB][WARN] No se pudieron agregar columnas de usuarios: ${e.message}")
             }
@@ -115,10 +135,18 @@ object DatabaseConfig {
                 println("[DB][WARN] No se pudo agregar columna estado en extintores: ${e.message}")
             }
             try {
+                TransactionManager.current().exec("ALTER TABLE extintores ADD COLUMN IF NOT EXISTS ubicacion VARCHAR(255)")
+                TransactionManager.current().exec("ALTER TABLE extintores ADD COLUMN IF NOT EXISTS estado_logistico VARCHAR(30) DEFAULT 'DISPONIBLE'")
+            } catch (e: Exception) {
+                println("[DB][WARN] No se pudieron agregar columnas logisticas en extintores: ${e.message}")
+            }
+            try {
                 TransactionManager.current().exec("ALTER TABLE movimientos_inventario ADD COLUMN IF NOT EXISTS estado_aprobacion VARCHAR(20) DEFAULT 'APROBADO'")
                 TransactionManager.current().exec("ALTER TABLE movimientos_inventario ADD COLUMN IF NOT EXISTS requiere_aprobacion BOOLEAN DEFAULT FALSE")
                 TransactionManager.current().exec("ALTER TABLE movimientos_inventario ADD COLUMN IF NOT EXISTS aprobado_por INTEGER REFERENCES usuarios(id)")
                 TransactionManager.current().exec("ALTER TABLE movimientos_inventario ADD COLUMN IF NOT EXISTS fecha_aprobacion TIMESTAMP")
+                TransactionManager.current().exec("ALTER TABLE movimientos_inventario ADD COLUMN IF NOT EXISTS idempotencia_key VARCHAR(80)")
+                TransactionManager.current().exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_movimientos_idempotencia ON movimientos_inventario(idempotencia_key)")
             } catch (e: Exception) {
                 println("[DB][WARN] No se pudieron agregar columnas de aprobación en movimientos: ${e.message}")
             }

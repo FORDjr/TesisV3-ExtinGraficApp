@@ -69,9 +69,7 @@ fun NuevaVentaScreen(
                 Spacer(Modifier.width(16.dp))
                 Button(
                     onClick = { viewModel.crearVenta() },
-                    enabled = uiState.cliente.isNotBlank()
-                            && uiState.productos.isNotEmpty()
-                            && uiState.metodoPago != null,
+                    enabled = uiState.isValid,
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Crear Venta")
@@ -120,6 +118,33 @@ fun NuevaVentaScreen(
                             label = { Text("Nombre del cliente *") },
                             modifier = Modifier.fillMaxWidth()
                         )
+                        OutlinedTextField(
+                            value = uiState.clienteRut,
+                            onValueChange = viewModel::actualizarClienteRut,
+                            label = { Text("RUT / Identificación *") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = uiState.clienteDireccion,
+                            onValueChange = viewModel::actualizarClienteDireccion,
+                            label = { Text("Dirección") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = uiState.clienteTelefono,
+                                onValueChange = viewModel::actualizarClienteTelefono,
+                                label = { Text("Teléfono") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = uiState.clienteEmail,
+                                onValueChange = viewModel::actualizarClienteEmail,
+                                label = { Text("Email") },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }
@@ -142,6 +167,31 @@ fun NuevaVentaScreen(
                 }
             }
 
+            // --- Observaciones ---
+            item {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("Observaciones", style = MaterialTheme.typography.titleMedium)
+                        OutlinedTextField(
+                            value = uiState.observaciones,
+                            onValueChange = viewModel::actualizarObservaciones,
+                            label = { Text("Notas adicionales") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 80.dp)
+                        )
+                    }
+                }
+            }
+
             // --- Productos Seleccionados (nombre + − / +) ---
             if (uiState.productos.isNotEmpty()) {
                 item {
@@ -157,44 +207,95 @@ fun NuevaVentaScreen(
                         ) {
                             Text("Productos Seleccionados", style = MaterialTheme.typography.titleMedium)
                             uiState.productos.forEach { prod ->
-                                Row(
+                                Column(
                                     Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text(
-                                        text = prod.nombre,
-                                        modifier = Modifier.weight(1f),
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                    IconButton(
-                                        onClick = {
-                                            if (prod.cantidad > 1)
-                                                viewModel.actualizarCantidadProducto(prod.id, prod.cantidad - 1)
-                                        },
-                                        enabled = prod.cantidad > 1
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(Icons.Default.Remove, contentDescription = "Disminuir")
+                                        Text(
+                                            text = prod.nombre,
+                                            modifier = Modifier.weight(1f),
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                        IconButton(
+                                            onClick = {
+                                                if (prod.cantidad > 1)
+                                                    viewModel.actualizarCantidadProducto(prod.id, prod.cantidad - 1)
+                                            },
+                                            enabled = prod.cantidad > 1
+                                        ) {
+                                            Icon(Icons.Default.Remove, contentDescription = "Disminuir")
+                                        }
+                                        Text(
+                                            text = prod.cantidad.toString(),
+                                            modifier = Modifier.padding(horizontal = 8.dp),
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                        IconButton(
+                                            onClick = {
+                                                if (prod.cantidad < prod.stock)
+                                                    viewModel.actualizarCantidadProducto(prod.id, prod.cantidad + 1)
+                                            },
+                                            enabled = prod.cantidad < prod.stock
+                                        ) {
+                                            Icon(Icons.Default.Add, contentDescription = "Aumentar")
+                                        }
+                                    }
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = prod.precio.toString(),
+                                            onValueChange = { value ->
+                                                value.toDoubleOrNull()?.let { viewModel.actualizarPrecioProducto(prod.id, it) }
+                                            },
+                                            label = { Text("Precio") },
+                                            modifier = Modifier.weight(1f),
+                                            singleLine = true
+                                        )
+                                        OutlinedTextField(
+                                            value = prod.descuento.toString(),
+                                            onValueChange = { value ->
+                                                value.toDoubleOrNull()?.let { viewModel.actualizarDescuentoProducto(prod.id, it) }
+                                            },
+                                            label = { Text("Descuento") },
+                                            modifier = Modifier.weight(1f),
+                                            singleLine = true
+                                        )
+                                        OutlinedTextField(
+                                            value = prod.iva.toString(),
+                                            onValueChange = { value ->
+                                                value.toDoubleOrNull()?.let { viewModel.actualizarIvaProducto(prod.id, it) }
+                                            },
+                                            label = { Text("IVA %") },
+                                            modifier = Modifier.weight(1f),
+                                            singleLine = true
+                                        )
                                     }
                                     Text(
-                                        text = prod.cantidad.toString(),
-                                        modifier = Modifier.padding(horizontal = 8.dp),
-                                        style = MaterialTheme.typography.bodyLarge
+                                        text = "Subtotal: ${"%.0f".format(prod.subtotal)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    IconButton(
-                                        onClick = {
-                                            if (prod.cantidad < prod.stock)
-                                                viewModel.actualizarCantidadProducto(prod.id, prod.cantidad + 1)
-                                        },
-                                        enabled = prod.cantidad < prod.stock
-                                    ) {
-                                        Icon(Icons.Default.Add, contentDescription = "Aumentar")
-                                    }
                                 }
                             }
                         }
                     }
+                }
+            }
+
+            if (uiState.error != null) {
+                item {
+                    Text(
+                        text = uiState.error ?: "",
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
 

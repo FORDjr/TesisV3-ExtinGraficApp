@@ -51,6 +51,10 @@ fun AppSidebar(
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp
     ) {
+        val role = authState.userRole.uppercase()
+        val mainItems = NavigationItems.mainMenuItems.filter { item ->
+            item.allowedRoles == null || role == "ADMIN" || item.allowedRoles.any { it.equals(role, ignoreCase = true) }
+        }
         Column(modifier = Modifier.fillMaxHeight()) {
             SidebarHeader(userName = authState.userName, userEmail = authState.userEmail)
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
@@ -62,7 +66,7 @@ fun AppSidebar(
                 item {
                     SidebarSectionLabel(text = "Principal")
                 }
-                items(NavigationItems.mainMenuItems) { item ->
+                items(mainItems) { item ->
                     SidebarMenuItem(
                         item = item,
                         selected = selectedRoute == item.route,

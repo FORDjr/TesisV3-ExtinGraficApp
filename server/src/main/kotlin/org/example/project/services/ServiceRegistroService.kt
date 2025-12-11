@@ -64,7 +64,7 @@ class ServiceRegistroService(
         }
 
         // Emitir certificado
-        val cert = extService.emitirCertificado(ext.id.value)
+        val cert = extService.emitirCertificado(ext.id.value, req.tecnicoId)
         if (cert != null) {
             registro.numeroCertificado = cert.numero
             registro.fechaProximoVencimiento = ext.fechaProximoVencimiento

@@ -44,3 +44,28 @@ data class RegistroResponse(
     val message: String,
     val usuario: UsuarioResponse? = null
 )
+
+@Serializable
+data class CrearUsuarioRequest(
+    val email: String,
+    val password: String,
+    val nombre: String,
+    val apellido: String,
+    val rol: String,
+    val activo: Boolean = true
+)
+
+@Serializable
+data class ActualizarUsuarioRequest(
+    val email: String? = null,
+    val password: String? = null,
+    val nombre: String? = null,
+    val apellido: String? = null,
+    val rol: String? = null,
+    val activo: Boolean? = null
+)
+
+@Serializable
+data class CambiarEstadoUsuarioRequest(
+    val activo: Boolean
+)
