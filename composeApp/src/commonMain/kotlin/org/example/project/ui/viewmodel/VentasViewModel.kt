@@ -10,6 +10,10 @@ import org.example.project.data.repository.MercadoLibreRepository
 import org.example.project.data.models.*
 import org.example.project.data.model.Producto
 import org.example.project.data.model.toUI
+import kotlin.math.roundToLong
+import org.example.project.utils.NotificationPreferences
+import org.example.project.utils.Notifier
+import org.example.project.utils.savePdfToFile
 
 class VentasViewModel(
     private val ventasRepository: VentasRepository,
@@ -49,7 +53,8 @@ class VentasViewModel(
             if (needsReplacement) {
                 val nombre = demoClientes[idx % demoClientes.size]
                 idx++
-                venta.copy(cliente = nombre)
+                val formal = venta.clienteFormal?.copy(nombre = nombre)
+                venta.copy(cliente = nombre, clienteFormal = formal)
             } else venta
         }
     }
@@ -325,6 +330,26 @@ class VentasViewModel(
         _nuevaVentaState.value = _nuevaVentaState.value.copy(cliente = cliente)
     }
 
+    fun actualizarClienteRut(rut: String) {
+        val clean = rut.uppercase().filter { it.isDigit() || it == 'K' }.take(9)
+        _nuevaVentaState.value = _nuevaVentaState.value.copy(clienteRut = clean)
+    }
+
+    fun actualizarClienteDireccion(direccion: String) {
+        _nuevaVentaState.value = _nuevaVentaState.value.copy(clienteDireccion = direccion)
+    }
+
+    fun actualizarClienteTelefono(telefono: String) {
+        val digits = telefono.filter { it.isDigit() }
+            .let { if (it.startsWith("56")) it.drop(2) else it }
+            .take(9)
+        _nuevaVentaState.value = _nuevaVentaState.value.copy(clienteTelefono = digits)
+    }
+
+    fun actualizarClienteEmail(email: String) {
+        _nuevaVentaState.value = _nuevaVentaState.value.copy(clienteEmail = VentasInputFormatter.normalizeEmail(email))
+    }
+
     fun actualizarMetodoPago(metodo: MetodoPago) {
         _nuevaVentaState.value = _nuevaVentaState.value.copy(metodoPago = metodo)
     }
@@ -365,6 +390,8 @@ class VentasViewModel(
                 precio = productoUI.precio,
                 cantidad = 1,
                 stock = productoUI.stock,
+                descuento = 0.0,
+                iva = 19.0,
                 descripcion = productoUI.descripcion
             )
         }
@@ -384,6 +411,36 @@ class VentasViewModel(
             }
         }
         _nuevaVentaState.value = state.copy(productos = nuevosProductos)
+    }
+
+    fun actualizarPrecioProducto(id: Int, precio: Double) {
+        val state = _nuevaVentaState.value
+        val precioSeguro = precio.coerceAtLeast(0.0)
+        _nuevaVentaState.value = state.copy(
+            productos = state.productos.map {
+                if (it.id == id) it.copy(precio = precioSeguro) else it
+            }
+        )
+    }
+
+    fun actualizarDescuentoProducto(id: Int, descuento: Double) {
+        val state = _nuevaVentaState.value
+        val descuentoSeguro = descuento.coerceAtLeast(0.0)
+        _nuevaVentaState.value = state.copy(
+            productos = state.productos.map {
+                if (it.id == id) it.copy(descuento = descuentoSeguro) else it
+            }
+        )
+    }
+
+    fun actualizarIvaProducto(id: Int, iva: Double) {
+        val state = _nuevaVentaState.value
+        val ivaSeguro = iva.coerceIn(0.0, 100.0)
+        _nuevaVentaState.value = state.copy(
+            productos = state.productos.map {
+                if (it.id == id) it.copy(iva = ivaSeguro) else it
+            }
+        )
     }
 
     // Método que falta - alias para compatibilidad
@@ -410,6 +467,8 @@ class VentasViewModel(
                 precio = producto.precio,
                 cantidad = 1,
                 stock = producto.toUI().stock,
+                descuento = 0.0,
+                iva = 19.0,
                 descripcion = producto.descripcion
             )
         }
@@ -431,16 +490,49 @@ class VentasViewModel(
 
     fun crearVenta() {
         val state = _nuevaVentaState.value
+        if (!state.isValid) {
+            _nuevaVentaState.value = state.copy(error = "Completa los datos del cliente, RUT y al menos un producto")
+            return
+        }
+        if (!VentasInputFormatter.isRutValido(state.clienteRut)) {
+            _nuevaVentaState.value = state.copy(error = "RUT inválido")
+            return
+        }
+        if (state.clienteTelefono.isNotBlank() && !VentasInputFormatter.isTelefonoValido(state.clienteTelefono)) {
+            _nuevaVentaState.value = state.copy(error = "Teléfono debe ser 9 dígitos iniciando en 9")
+            return
+        }
+        if (state.clienteEmail.isNotBlank() && !VentasInputFormatter.isEmailValido(state.clienteEmail)) {
+            _nuevaVentaState.value = state.copy(error = "Email inválido")
+            return
+        }
+        val productoInvalido = state.productos.firstOrNull { it.precio <= 0 || it.cantidad <= 0 || it.iva < 0 || it.iva > 100 }
+        if (productoInvalido != null) {
+            _nuevaVentaState.value = state.copy(error = "Revisa precios/IVA de ${productoInvalido.nombre}")
+            return
+        }
+
         val productosRequest = state.productos.map {
             ProductoVentaRequest(
                 id = it.id,
-                cantidad = it.cantidad
+                cantidad = it.cantidad,
+                precio = it.precio.roundToLong(),
+                descuento = it.descuento.roundToLong(),
+                iva = it.iva
             )
         }
+        val clienteFormal = ClienteFormal(
+            nombre = state.cliente,
+            rut = state.clienteRut.ifBlank { null },
+            direccion = state.clienteDireccion.ifBlank { null },
+            telefono = state.clienteTelefono.ifBlank { null },
+            email = state.clienteEmail.ifBlank { null }
+        )
         // Usar NuevaVentaRequest y asegurar que metodoPago no sea nulo
         val ventaRequest = NuevaVentaRequest(
             cliente = state.cliente,
             productos = productosRequest,
+            clienteFormal = clienteFormal,
             metodoPago = state.metodoPago ?: MetodoPago.EFECTIVO, // Valor por defecto si es nulo
             observaciones = state.observaciones
         )
@@ -451,6 +543,7 @@ class VentasViewModel(
                 result.fold(
                     onSuccess = { venta ->
                         _nuevaVentaState.value = state.copy(isLoading = false, ventaCreada = venta, error = null)
+                        notificarVentaPendiente(venta)
                         cargarDatos() // Actualiza la lista de ventas
                     },
                     onFailure = { error ->
@@ -477,6 +570,10 @@ class VentasViewModel(
                             successMessage = "Venta ${ventaActualizada.id} marcada como ${nuevoEstado.name.lowercase()}",
                             error = null
                         )
+                        if (nuevoEstado == EstadoVenta.COMPLETADA) {
+                            notificarVentaCompletada(ventaActualizada)
+                            viewModelScope.launch { notificarStockCritico("venta completada") }
+                        }
                     },
                     onFailure = { error ->
                         println("Error al actualizar estado de venta: ${error.message}")
@@ -494,12 +591,119 @@ class VentasViewModel(
         }
     }
 
+    fun registrarDevolucionParcial(ventaId: String, productoId: Int, cantidad: Int, motivo: String?) {
+        if (cantidad <= 0) {
+            _uiState.update { it.copy(error = "La cantidad a devolver debe ser mayor a 0") }
+            return
+        }
+        viewModelScope.launch {
+            ventasRepository.registrarDevolucionParcial(
+                ventaId,
+                DevolucionParcialRequest(
+                    items = listOf(ItemDevolucionRequest(productoId = productoId, cantidad = cantidad)),
+                    motivo = motivo
+                )
+            ).fold(
+                onSuccess = { venta ->
+                    _uiState.value = _uiState.value.copy(
+                        ventas = _uiState.value.ventas.map { if (it.id == venta.id) venta else it },
+                        successMessage = "Devolución registrada",
+                        error = null
+                    )
+                },
+                onFailure = { error ->
+                    _uiState.value = _uiState.value.copy(
+                        error = "No se pudo registrar la devolución: ${error.message}"
+                    )
+                }
+            )
+        }
+    }
+
+    suspend fun descargarComprobantePdf(ventaId: String) {
+        ventasRepository.descargarComprobantePdf(ventaId).fold(
+            onSuccess = { bytes ->
+                val path = savePdfToFile("comprobante-$ventaId.pdf", bytes)
+                _uiState.update { it.copy(successMessage = "Comprobante guardado en $path", error = null) }
+            },
+            onFailure = { error ->
+                _uiState.update { it.copy(error = "No se pudo descargar el comprobante: ${error.message}") }
+            }
+        )
+    }
+
     fun limpiarMensajeEstado() {
         _uiState.update { it.copy(successMessage = null) }
     }
 
     fun limpiarVentaCreada() {
         _nuevaVentaState.value = _nuevaVentaState.value.copy(ventaCreada = null, isLoading = false)
+    }
+
+    private fun notificarVentaPendiente(venta: Venta) {
+        if (!NotificationPreferences.settings.value.notifySales) return
+        Notifier.notify(
+            title = "Venta pendiente",
+            message = "${venta.correlativo} registrada por ${formatMonto(venta.total)}"
+        )
+    }
+
+    private fun notificarVentaCompletada(venta: Venta) {
+        if (!NotificationPreferences.settings.value.notifySales) return
+        val neto = (venta.total - venta.totalDevuelto).coerceAtLeast(0)
+        Notifier.notify(
+            title = "Venta completada",
+            message = "${venta.correlativo} cerrada por ${formatMonto(neto)}"
+        )
+    }
+
+    private suspend fun notificarStockCritico(trigger: String) {
+        if (!NotificationPreferences.settings.value.notifyStock) return
+        val criticos = inventarioRepository.obtenerCriticos()
+        if (criticos.isEmpty()) return
+        val resumen = criticos.take(3).joinToString(", ") { it.nombre }
+        val extra = if (criticos.size > 3) " (+${criticos.size - 3})" else ""
+        Notifier.notify(
+            title = "Stock crítico",
+            message = "$resumen$extra tras $trigger"
+        )
+    }
+
+    private fun formatMonto(monto: Long): String = "$$monto"
+}
+
+object VentasInputFormatter {
+    fun isRutValido(rut: String): Boolean {
+        val clean = rut.uppercase().filter { it.isDigit() || it == 'K' }
+        if (clean.length < 2) return false
+        val cuerpo = clean.dropLast(1).filter { it.isDigit() }
+        if (cuerpo.isEmpty()) return false
+        val dvIngresado = clean.last()
+        var factor = 2
+        var suma = 0
+        cuerpo.reversed().forEach { ch ->
+            suma += (ch - '0') * factor
+            factor = if (factor == 7) 2 else factor + 1
+        }
+        val resto = suma % 11
+        val dvCalculado = when (val res = 11 - resto) {
+            11 -> '0'
+            10 -> 'K'
+            else -> ('0'.code + res).toChar()
+        }
+        return dvCalculado == dvIngresado || (dvCalculado == 'K' && dvIngresado == '0')
+    }
+
+    fun isTelefonoValido(telefono: String): Boolean {
+        val digits = telefono.filter { it.isDigit() }.let { if (it.startsWith("56")) it.drop(2) else it }
+        return digits.length == 9 && digits.firstOrNull() == '9'
+    }
+
+    fun normalizeEmail(email: String): String = email.trim().lowercase()
+
+    fun isEmailValido(email: String): Boolean {
+        val pattern = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".toRegex()
+        return email.isBlank() || pattern.matches(email.trim())
     }
 }
 

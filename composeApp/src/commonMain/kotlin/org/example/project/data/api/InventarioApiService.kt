@@ -15,6 +15,7 @@ import org.example.project.data.model.Producto
 import org.example.project.data.model.ProductoRequest
 import org.example.project.LOCAL_SERVER_URL
 import org.example.project.preferredBaseUrl
+import org.example.project.data.auth.AuthManager
 
 class InventarioApiService {
 
@@ -45,6 +46,12 @@ class InventarioApiService {
         install(Logging) {
             logger = Logger.DEFAULT
             level = LogLevel.INFO
+        }
+        install(io.ktor.client.plugins.DefaultRequest) {
+            val token = AuthManager.getToken()
+            if (token.isNotBlank()) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+            }
         }
     }
 
@@ -247,6 +254,20 @@ class InventarioApiService {
         } catch (e: Exception) {
             println("Error al eliminar producto $id: ${e.message}")
             false
+        }
+    }
+
+    /**
+     * Obtener productos en stock crítico
+     */
+    suspend fun obtenerCriticos(): List<Producto> {
+        return try {
+            makeRequest { url ->
+                httpClient.get("$url$API_PATH/criticos").body()
+            }
+        } catch (e: Exception) {
+            println("Error al obtener productos críticos: ${e.message}")
+            emptyList()
         }
     }
 

@@ -6,39 +6,15 @@ import org.example.project.models.*
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import java.security.MessageDigest
-import java.security.SecureRandom
-import javax.crypto.spec.PBEKeySpec
-import javax.crypto.SecretKeyFactory
+import kotlinx.datetime.plus
+import kotlinx.datetime.DateTimeUnit
+import org.example.project.MAX_FAILED_ATTEMPTS
+import org.example.project.LOCKOUT_MINUTES
+import org.example.project.security.JwtConfig
+import org.example.project.security.PasswordUtils
+import org.example.project.security.UserRole
 
 object AuthService {
-
-    // Hash de contraseña usando PBKDF2
-    private fun hashPassword(password: String, salt: ByteArray): String {
-        val spec = PBEKeySpec(password.toCharArray(), salt, 100000, 256)
-        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-        val hash = factory.generateSecret(spec).encoded
-        return "${salt.joinToString("") { "%02x".format(it) }}:${hash.joinToString("") { "%02x".format(it) }}"
-    }
-
-    // Verificar contraseña
-    private fun verifyPassword(password: String, hashedPassword: String): Boolean {
-        val parts = hashedPassword.split(":")
-        if (parts.size != 2) return false
-
-        val salt = parts[0].chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-        val hash = parts[1]
-
-        val newHash = hashPassword(password, salt)
-        return newHash == hashedPassword
-    }
-
-    // Generar salt aleatorio
-    private fun generateSalt(): ByteArray {
-        val salt = ByteArray(32)
-        SecureRandom().nextBytes(salt)
-        return salt
-    }
 
     // Registrar nuevo usuario
     fun registrarUsuario(registro: UsuarioRegistro): RegistroResponse {
@@ -70,9 +46,10 @@ object AuthService {
                 }
 
                 // Hash de la contraseña
-                val salt = generateSalt()
-                val hashedPassword = hashPassword(registro.password, salt)
+                val salt = PasswordUtils.generateSalt()
+                val hashedPassword = PasswordUtils.hashPassword(registro.password, salt)
                 val ahora = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                val rol = UserRole.USER.name
 
                 // Insertar usuario
                 val userId = Usuarios.insertAndGetId {
@@ -80,7 +57,7 @@ object AuthService {
                     it[password] = hashedPassword
                     it[nombre] = registro.nombre
                     it[apellido] = registro.apellido
-                    it[rol] = "user"
+                    it[Usuarios.rol] = rol
                     it[activo] = true
                     it[fechaCreacion] = ahora
                     it[intentosFallidos] = 0
@@ -92,7 +69,7 @@ object AuthService {
                     email = registro.email.lowercase(),
                     nombre = registro.nombre,
                     apellido = registro.apellido,
-                    rol = "user",
+                    rol = rol,
                     activo = true,
                     fechaCreacion = ahora.toString(),
                     intentosFallidos = 0,
@@ -129,6 +106,8 @@ object AuthService {
                     )
                 }
 
+                val ahora = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+
                 if (!usuario[Usuarios.activo]) {
                     return@transaction LoginResponse(
                         success = false,
@@ -136,36 +115,63 @@ object AuthService {
                     )
                 }
 
-                val hashedPassword = usuario[Usuarios.password]
-                if (!verifyPassword(login.password, hashedPassword)) {
+                val bloqueadoHasta = usuario[Usuarios.bloqueadoHasta]
+                if (bloqueadoHasta != null && bloqueadoHasta > ahora) {
                     return@transaction LoginResponse(
                         success = false,
-                        message = "Email o contraseña incorrectos"
+                        message = "Cuenta bloqueada hasta $bloqueadoHasta por intentos fallidos"
+                    )
+                }
+
+                val hashedPassword = usuario[Usuarios.password]
+                val passwordValida = PasswordUtils.verifyPassword(login.password, hashedPassword)
+                if (!passwordValida) {
+                    val intentos = usuario[Usuarios.intentosFallidos] + 1
+                    val lockUntil = if (intentos >= MAX_FAILED_ATTEMPTS) {
+                        Clock.System.now()
+                            .plus(LOCKOUT_MINUTES, DateTimeUnit.MINUTE, TimeZone.currentSystemDefault())
+                            .toLocalDateTime(TimeZone.currentSystemDefault())
+                    } else null
+                    Usuarios.update({ Usuarios.id eq usuario[Usuarios.id] }) {
+                        it[Usuarios.intentosFallidos] = intentos
+                        it[Usuarios.bloqueadoHasta] = lockUntil
+                    }
+                    val mensaje = if (lockUntil != null) {
+                        "Cuenta bloqueada por $LOCKOUT_MINUTES minutos por intentos fallidos"
+                    } else {
+                        "Email o contraseña incorrectos"
+                    }
+                    return@transaction LoginResponse(
+                        success = false,
+                        message = mensaje
                     )
                 }
 
                 // Actualizar fecha de último acceso
-                val ahora = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
                 Usuarios.update({ Usuarios.id eq usuario[Usuarios.id] }) {
-                    it[fechaUltimoAcceso] = ahora
-                    it[intentosFallidos] = 0
-                    it[bloqueadoHasta] = null
+                    it[Usuarios.fechaUltimoAcceso] = ahora
+                    it[Usuarios.intentosFallidos] = 0
+                    it[Usuarios.bloqueadoHasta] = null
                 }
 
+                val rol = UserRole.from(usuario[Usuarios.rol])?.name ?: UserRole.USER.name
                 val usuarioResponse = UsuarioResponse(
                     id = usuario[Usuarios.id].value,
                     email = usuario[Usuarios.email],
                     nombre = usuario[Usuarios.nombre],
                     apellido = usuario[Usuarios.apellido],
-                    rol = usuario[Usuarios.rol],
+                    rol = rol,
                     activo = usuario[Usuarios.activo],
                     fechaCreacion = usuario[Usuarios.fechaCreacion].toString(),
                     intentosFallidos = usuario[Usuarios.intentosFallidos],
                     bloqueadoHasta = usuario[Usuarios.bloqueadoHasta]?.toString()
                 )
 
-                // Generar token simple (en producción usar JWT)
-                val token = generateSimpleToken(usuario[Usuarios.id].value)
+                val token = JwtConfig.generateToken(
+                    userId = usuario[Usuarios.id].value,
+                    email = usuario[Usuarios.email],
+                    role = rol
+                )
 
                 LoginResponse(
                     success = true,
@@ -183,14 +189,6 @@ object AuthService {
         }
     }
 
-    // Generar token simple (en producción usar JWT)
-    private fun generateSimpleToken(userId: Int): String {
-        val timestamp = System.currentTimeMillis()
-        val data = "$userId:$timestamp"
-        val hash = MessageDigest.getInstance("SHA-256").digest(data.toByteArray())
-        return hash.joinToString("") { "%02x".format(it) }
-    }
-
     // Obtener usuario por ID
     fun obtenerUsuario(userId: Int): UsuarioResponse? {
         return transaction {
@@ -204,7 +202,7 @@ object AuthService {
                     email = it[Usuarios.email],
                     nombre = it[Usuarios.nombre],
                     apellido = it[Usuarios.apellido],
-                    rol = it[Usuarios.rol],
+                    rol = UserRole.from(it[Usuarios.rol])?.name ?: it[Usuarios.rol].uppercase(),
                     activo = it[Usuarios.activo],
                     fechaCreacion = it[Usuarios.fechaCreacion].toString(),
                     intentosFallidos = it[Usuarios.intentosFallidos],

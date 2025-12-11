@@ -8,7 +8,7 @@ enum class ThemePreference { SYSTEM, LIGHT, DARK }
 
 // Gestor simple en memoria (se puede extender a persistencia multiplataforma luego)
 object ThemeManager {
-    private val _themePreference = MutableStateFlow(ThemePreference.SYSTEM)
+    private val _themePreference = MutableStateFlow(ThemePreference.LIGHT)
     val themePreference: StateFlow<ThemePreference> = _themePreference
 
     fun setThemePreference(pref: ThemePreference) {

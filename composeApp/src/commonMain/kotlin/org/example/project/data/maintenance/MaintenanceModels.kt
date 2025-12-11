@@ -73,6 +73,7 @@ data class MaintenanceHistoryEntry(
 )
 
 data class ExtinguisherAsset(
+    val id: Int? = null,
     val code: String,
     val serialNumber: String? = null,
     val owner: String,

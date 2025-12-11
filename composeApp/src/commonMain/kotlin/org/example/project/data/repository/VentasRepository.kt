@@ -28,6 +28,14 @@ class VentasRepository(private val apiService: VentasApiService) {
         return apiService.actualizarEstadoVenta(id, nuevoEstado)
     }
 
+    suspend fun descargarComprobantePdf(id: String): Result<ByteArray> {
+        return apiService.descargarComprobantePdf(id)
+    }
+
+    suspend fun registrarDevolucionParcial(id: String, request: DevolucionParcialRequest): Result<Venta> {
+        return apiService.registrarDevolucionParcial(id, request)
+    }
+
     fun obtenerProductosParaVenta(): Flow<Result<List<Producto>>> = flow {
         emit(apiService.obtenerProductosParaVenta())
     }

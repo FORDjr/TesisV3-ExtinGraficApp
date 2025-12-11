@@ -35,6 +35,9 @@ object Extintores : IntIdTable("extintores") {
     val tipo = varchar("tipo", 50)              // Polvo, CO2, etc.
     val agente = varchar("agente", 50)          // ABC, CO2, etc.
     val capacidad = varchar("capacidad", 30)    // 5kg, 10lb, etc.
+    val ubicacion = varchar("ubicacion", 255).nullable()
+    val estadoLogistico = enumerationByName("estado_logistico", 30, EstadoLogisticoExtintor::class)
+        .default(EstadoLogisticoExtintor.DISPONIBLE)
     val fechaFabricacion = datetime("fecha_fabricacion").nullable()
     val fechaUltimaRecarga = datetime("fecha_ultima_recarga").nullable()
     val fechaProximoVencimiento = datetime("fecha_proximo_vencimiento").nullable()
@@ -71,6 +74,7 @@ object Certificados : IntIdTable("certificados") {
 
 enum class EstadoOrdenServicio { PLANIFICADA, EN_PROGRESO, CERRADA, CANCELADA }
 enum class EstadoExtintor { VIGENTE, POR_VENCER, VENCIDO }
+enum class EstadoLogisticoExtintor { DISPONIBLE, TALLER, TERRENO, PRESTAMO, FUERA_SERVICIO }
 
 /* -------------------- Entidades -------------------- */
 class Cliente(id: EntityID<Int>) : IntEntity(id) {
@@ -102,6 +106,8 @@ class Extintor(id: EntityID<Int>) : IntEntity(id) {
     var tipo by Extintores.tipo
     var agente by Extintores.agente
     var capacidad by Extintores.capacidad
+    var ubicacion by Extintores.ubicacion
+    var estadoLogistico by Extintores.estadoLogistico
     var fechaFabricacion by Extintores.fechaFabricacion
     var fechaUltimaRecarga by Extintores.fechaUltimaRecarga
     var fechaProximoVencimiento by Extintores.fechaProximoVencimiento
@@ -156,6 +162,8 @@ data class ExtintorRequest(
     val tipo: String,
     val agente: String,
     val capacidad: String,
+    val ubicacion: String? = null,
+    val estadoLogistico: EstadoLogisticoExtintor? = null,
     val fechaProximoVencimiento: String? = null, // ISO
 )
 
@@ -168,6 +176,8 @@ data class ExtintorResponse(
     val tipo: String,
     val agente: String,
     val capacidad: String,
+    val ubicacion: String? = null,
+    val estadoLogistico: EstadoLogisticoExtintor,
     val fechaProximoVencimiento: String?,
     val diasParaVencer: Long?,
     val color: String,
@@ -201,6 +211,8 @@ data class ExtintorUpdateRequest(
     val tipo: String? = null,
     val agente: String? = null,
     val capacidad: String? = null,
+    val ubicacion: String? = null,
+    val estadoLogistico: EstadoLogisticoExtintor? = null,
     val fechaProximoVencimiento: String? = null
 )
 

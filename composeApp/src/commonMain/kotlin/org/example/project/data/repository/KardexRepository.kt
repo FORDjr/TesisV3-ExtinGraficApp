@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.example.project.data.api.ExportLinks
 import org.example.project.data.api.InventarioApiService
 import org.example.project.data.api.MovimientosApiService
+import org.example.project.data.sync.PendingSyncManager
 import org.example.project.data.model.CrearMovimientoRequest
 import org.example.project.data.model.EstadoProductoRemote
 import org.example.project.data.model.InventarioQuery
@@ -79,12 +80,22 @@ class KardexRepository(
     }
 
     suspend fun crearAjustePendiente(request: CrearMovimientoRequest) {
+        val payload = request.copy(
+            requiereAprobacion = true,
+            idempotenciaKey = request.idempotenciaKey ?: PendingSyncManager.generateKey("mov")
+        )
         try {
             _isLoading.value = true
-            movimientosApi.crearMovimiento(request.copy(requiereAprobacion = true))
+            movimientosApi.crearMovimiento(payload)
             lastFilters?.let { cargarKardex(it) }
         } catch (e: Exception) {
-            _error.value = e.message ?: "No se pudo registrar el ajuste"
+            val shouldQueue = e !is io.ktor.client.plugins.ResponseException
+            if (shouldQueue) {
+                val key = PendingSyncManager.enqueueMovimiento(payload)
+                _error.value = "Sin conexión: ajuste guardado en cola ($key)"
+            } else {
+                _error.value = e.message ?: "No se pudo registrar el ajuste"
+            }
         } finally {
             _isLoading.value = false
         }

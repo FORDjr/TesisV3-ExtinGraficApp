@@ -17,7 +17,8 @@ data class MovimientoInventario(
     val estadoAprobacion: EstadoAprobacionMovimiento,
     val requiereAprobacion: Boolean = false,
     val aprobadoPor: Int? = null,
-    val fechaAprobacion: String? = null
+    val fechaAprobacion: String? = null,
+    val idempotenciaKey: String? = null
 )
 
 @Serializable
@@ -60,7 +61,8 @@ data class CrearMovimientoRequest(
     val usuarioId: Int? = null,
     val observaciones: String? = null,
     val fechaRegistro: String? = null,
-    val requiereAprobacion: Boolean? = null
+    val requiereAprobacion: Boolean? = null,
+    val idempotenciaKey: String? = null
 )
 
 @Serializable

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import kotlin.math.roundToLong
@@ -121,7 +122,7 @@ fun ProductDialog(
                     }
                 }
 
-                Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 ExtintorTextField(
                     value = nombre,
@@ -557,7 +558,8 @@ fun ExtintorTextField(
     isError: Boolean = false,
     errorMessage: String = "",
     singleLine: Boolean = true,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    visualTransformation: VisualTransformation = VisualTransformation.None
 ) {
     Column(modifier = modifier) {
         OutlinedTextField(
@@ -565,6 +567,7 @@ fun ExtintorTextField(
             onValueChange = onValueChange,
             label = { Text(label) },
             placeholder = { Text(placeholder) },
+            visualTransformation = visualTransformation,
             leadingIcon = leadingText?.let {
                 {
                     Text(

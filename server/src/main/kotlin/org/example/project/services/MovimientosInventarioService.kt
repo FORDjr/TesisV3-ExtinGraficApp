@@ -29,6 +29,12 @@ class MovimientosInventarioService {
     )
 
     fun crearMovimiento(request: CrearMovimientoInventarioRequest): MovimientoInventarioResponse = transaction {
+        val key = request.idempotenciaKey?.takeIf { it.isNotBlank() }
+        if (key != null) {
+            val existente = MovimientoInventario.find { MovimientosInventario.idempotenciaKey eq key }.firstOrNull()
+            if (existente != null) return@transaction existente.toResponse()
+        }
+
         val producto = Producto.findById(request.productoId) ?: error("Producto no encontrado")
         val ahora = request.fechaRegistro?.let { LocalDateTime.parse(it) }
             ?: Clock.System.now().toLocalDateTime(TimeZone.UTC)
@@ -69,6 +75,7 @@ class MovimientosInventarioService {
             this.fechaRegistro = ahora
             this.estadoAprobacion = if (requiereAprobacion) EstadoAprobacionMovimiento.PENDIENTE else EstadoAprobacionMovimiento.APROBADO
             this.requiereAprobacion = requiereAprobacion
+            this.idempotenciaKey = key
         }
 
         movimiento.toResponse()
@@ -208,7 +215,7 @@ class MovimientosInventarioService {
     }
 
     fun exportarCsv(filtros: Filtros): String {
-        val header = "ID,Producto,Tipo,Cantidad,Motivo,Documento,Proveedor,Usuario,Estado,AprobadoPor,Fecha\n"
+        val header = "ID,Producto,Tipo,Cantidad,Motivo,Documento,Proveedor,Usuario,Estado,AprobadoPor,Fecha,Idempotencia\n"
         val rows = listarMovimientos(filtros, limit = 5000, offset = 0).items.joinToString("\n") { mov ->
             listOf(
                 mov.id,
@@ -221,7 +228,8 @@ class MovimientosInventarioService {
                 mov.usuarioId ?: "",
                 mov.estadoAprobacion,
                 mov.aprobadoPor ?: "",
-                mov.fechaRegistro
+                mov.fechaRegistro,
+                mov.idempotenciaKey ?: ""
             ).joinToString(",") { value ->
                 val text = value.toString().replace("\"", "\"\"")
                 "\"$text\""
@@ -274,6 +282,7 @@ class MovimientosInventarioService {
         estadoAprobacion = estadoAprobacion,
         requiereAprobacion = requiereAprobacion,
         aprobadoPor = aprobadoPor?.id?.value,
-        fechaAprobacion = fechaAprobacion?.toString()
+        fechaAprobacion = fechaAprobacion?.toString(),
+        idempotenciaKey = idempotenciaKey
     )
 }

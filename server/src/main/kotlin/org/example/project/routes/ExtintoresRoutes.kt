@@ -21,6 +21,8 @@ import org.example.project.models.OrdenServicio
 import org.example.project.models.Extintor
 import org.example.project.services.PdfGenerator
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.example.project.security.requireRole
+import org.example.project.security.UserRole
 
 fun Route.extintoresRoutes() {
     val service = ExtintoresService()
@@ -30,6 +32,7 @@ fun Route.extintoresRoutes() {
     // Nuevo: scan por codigo QR
     route("/api/extintores/scan") {
         get {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.VENTAS, UserRole.SUPERVISOR, UserRole.USER)) return@get
             val codigo = call.request.queryParameters["codigoQr"]
             if (codigo.isNullOrBlank()) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("error" to "codigoQr requerido")); return@get
@@ -39,9 +42,19 @@ fun Route.extintoresRoutes() {
         }
     }
 
+    post("/api/extintores/recalcular") {
+        if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@post
+        val res = service.recalcularEstados()
+        call.respond(res)
+    }
+
     route("/api/clientes") {
-        get { call.respond(service.listarClientes()) }
+        get {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@get
+            call.respond(service.listarClientes())
+        }
         post {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@post
             val req = call.receive<ClienteRequest>()
             call.respond(HttpStatusCode.Created, service.crearCliente(req))
         }
@@ -49,10 +62,12 @@ fun Route.extintoresRoutes() {
 
     route("/api/sedes") {
         get {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@get
             val clienteId = call.request.queryParameters["clienteId"]?.toIntOrNull()
             call.respond(service.listarSedes(clienteId))
         }
         post {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@post
             val req = call.receive<SedeRequest>()
             call.respond(HttpStatusCode.Created, service.crearSede(req))
         }
@@ -60,6 +75,7 @@ fun Route.extintoresRoutes() {
 
     route("/api/extintores") {
         get {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@get
             val clienteId = call.request.queryParameters["clienteId"]?.toIntOrNull()
             val sedeId = call.request.queryParameters["sedeId"]?.toIntOrNull()
             val color = call.request.queryParameters["color"]
@@ -68,6 +84,7 @@ fun Route.extintoresRoutes() {
             call.respond(service.listarExtintores(clienteId, sedeId, color, page, size))
         }
         post {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@post
             try {
                 val req = call.receive<ExtintorRequest>()
                 val creado = service.crearExtintor(req)
@@ -82,6 +99,7 @@ fun Route.extintoresRoutes() {
             }
         }
         patch("/{id}") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@patch
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
@@ -97,20 +115,24 @@ fun Route.extintoresRoutes() {
     // Certificados
     route("/api/certificados") {
         get {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@get
             val extintorId = call.request.queryParameters["extintorId"]?.toIntOrNull()
             call.respond(service.listarCertificados(extintorId))
         }
         post("/{extintorId}/emitir") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@post
             val extintorId = call.parameters["extintorId"]?.toIntOrNull()
             if (extintorId == null) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("error" to "extintorId inválido"))
                 return@post
             }
-            val cert = service.emitirCertificado(extintorId)
+            val supervisorId = call.request.queryParameters["tecnicoId"]?.toIntOrNull()
+            val cert = service.emitirCertificado(extintorId, supervisorId)
             if (cert == null) call.respond(HttpStatusCode.NotFound, mapOf("error" to "Extintor no encontrado"))
             else call.respond(HttpStatusCode.Created, cert)
         }
         get("/{id}/pdf") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@get
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) { call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido")); return@get }
             val path = service.obtenerRutaPdfCertificado(id)
@@ -125,11 +147,13 @@ fun Route.extintoresRoutes() {
     // Registros de servicio
     route("/api/servicios") {
         get {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@get
             val extintorId = call.request.queryParameters["extintorId"]?.toIntOrNull()
             val ordenId = call.request.queryParameters["ordenId"]?.toIntOrNull()
             call.respond(serviceRegistroService.listar(extintorId, ordenId))
         }
         post {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@post
             try {
                 val req = call.receive<CrearServiceRegistroRequest>()
                 val res = serviceRegistroService.crear(req)
@@ -143,6 +167,7 @@ fun Route.extintoresRoutes() {
     // Nuevo: extintor por ID
     route("/api/extintores/{id}") {
         get {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR, UserRole.VENTAS, UserRole.USER)) return@get
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) { call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido")); return@get }
             val uno = service.obtenerExtintor(id)
@@ -150,15 +175,27 @@ fun Route.extintoresRoutes() {
         }
     }
 
+    // Agenda combinada (vencimientos + ordenes + alertas)
+    route("/api/agenda") {
+        get {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR, UserRole.VENTAS, UserRole.USER)) return@get
+            val dias = call.request.queryParameters["dias"]?.toIntOrNull() ?: 60
+            service.recalcularEstados()
+            call.respond(service.agendaEventos(dias))
+        }
+    }
+
     // Nuevo: Rutas de órdenes de servicio
     route("/api/ordenes") {
         get {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@get
             val clienteId = call.request.queryParameters["clienteId"]?.toIntOrNull()
             val estadoParam = call.request.queryParameters["estado"]
             val estado = try { estadoParam?.let { EstadoOrdenServicio.valueOf(it) } } catch (_: Exception) { null }
             call.respond(service.listarOrdenes(clienteId, estado))
         }
         post {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@post
             try {
                 val req = call.receive<CrearOrdenServicioRequest>()
                 val creada = service.crearOrden(req)
@@ -168,6 +205,7 @@ fun Route.extintoresRoutes() {
             }
         }
         patch("/{id}/estado") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@patch
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) { call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido")); return@patch }
             val body = call.receive<Map<String,String>>()
@@ -182,6 +220,7 @@ fun Route.extintoresRoutes() {
     // Nuevo: PDF de orden
     route("/api/ordenes/{id}/pdf") {
         get {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@get
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) { call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido")); return@get }
             val ordResp = service.obtenerOrden(id)
@@ -208,22 +247,27 @@ fun Route.extintoresRoutes() {
     // Alertas
     route("/api/alertas") {
         get {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR, UserRole.VENTAS, UserRole.USER)) return@get
             val pend = call.request.queryParameters["pendientes"]?.toBooleanStrictOrNull()
             call.respond(alertService.listar(pend))
         }
         post("/generar") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@post
             val creadas = alertService.generarAlertasVencimiento()
             call.respond(mapOf("creadas" to creadas))
         }
         post("/generarStock") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@post
             val creadas = alertService.generarAlertasStock()
             call.respond(mapOf("creadas" to creadas))
         }
         post("/reenviar") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR)) return@post
             val reenviadas = alertService.reenviarPendientes()
             call.respond(mapOf("reenviadas" to reenviadas))
         }
         patch("/{id}/enviada") {
+            if (!call.requireRole(UserRole.ADMIN, UserRole.INVENTARIO, UserRole.SUPERVISOR, UserRole.VENTAS, UserRole.USER)) return@patch
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) { call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido")); return@patch }
             val res = alertService.marcarEnviada(id)

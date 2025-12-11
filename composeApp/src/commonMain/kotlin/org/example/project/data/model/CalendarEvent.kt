@@ -31,7 +31,14 @@ data class CalendarEvent(
     val rawDateTime: String? = null, // ISO original si viene con hora
     val daysToExpire: Long? = null,
     val color: String = "gris",
-    val type: String = "EXTINTOR"
+    val type: String = "EXTINTOR",
+    val referenceId: Int? = null,
+    val estado: String? = null,
+    val cliente: String? = null,
+    val sede: String? = null,
+    val descripcion: String? = null,
+    val codigo: String? = null,
+    val alertaId: Int? = null
 ) {
     fun localDate(): LocalDate? = try {
         when {

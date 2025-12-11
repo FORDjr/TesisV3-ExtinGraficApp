@@ -19,6 +19,7 @@ import org.example.project.data.model.Producto
 import org.example.project.LOCAL_SERVER_URL
 import org.example.project.preferredBaseUrl
 import kotlin.math.roundToLong
+import org.example.project.data.auth.AuthManager
 
 class VentasApiService {
     companion object {
@@ -36,6 +37,12 @@ class VentasApiService {
     private val httpClient = HttpClient {
         install(ContentNegotiation) { json(VentasApiService.json) }
         install(Logging) { logger = Logger.DEFAULT; level = LogLevel.INFO }
+        install(io.ktor.client.plugins.DefaultRequest) {
+            val token = AuthManager.getToken()
+            if (token.isNotBlank()) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+            }
+        }
     }
 
     private fun primaryUrls(): List<String> = CONNECTION_URLS
@@ -80,6 +87,10 @@ class VentasApiService {
         decodeVenta(payload)
     }
 
+    suspend fun descargarComprobantePdf(id: String): Result<ByteArray> = firstSuccessful { base ->
+        httpClient.get("$base$API_PATH_VENTAS/$id/comprobante/pdf").body()
+    }
+
     suspend fun actualizarEstadoVenta(id: String, nuevoEstado: EstadoVenta): Result<Venta> {
         return firstSuccessful { base ->
             val resp = httpClient.patch("$base$API_PATH_VENTAS/$id/estado") {
@@ -92,6 +103,19 @@ class VentasApiService {
             } else throw IllegalStateException("HTTP ${resp.status}")
         }
     }
+
+    suspend fun registrarDevolucionParcial(id: String, request: DevolucionParcialRequest): Result<Venta> =
+        firstSuccessful { base ->
+            val resp = httpClient.post("$base$API_PATH_VENTAS/$id/devolucion") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+            if (resp.status == HttpStatusCode.OK) {
+                decodeVenta(resp.bodyAsText())
+            } else {
+                throw IllegalStateException("HTTP ${resp.status}")
+            }
+        }
 
     suspend fun obtenerProductosParaVenta(): Result<List<Producto>> = firstSuccessful { base ->
         val resp: InventarioPage = httpClient.get(base + API_PATH_INVENTARIO) {
@@ -192,12 +216,16 @@ private fun LegacyVenta.toNew(): Venta = Venta(
     numero = id,
     cliente = cliente,
     fecha = fecha,
+    subtotal = productos.sumOf { it.subtotal.roundToLong() },
+    impuestos = 0L,
     total = total.roundToLong(),
     descuento = 0L,
     estado = estado,
     metodoPago = metodoPago,
     vendedorId = null,
     observaciones = observaciones,
+    clienteFormal = null,
+    totalDevuelto = 0L,
     productos = productos.map { it.toNew() }
 )
 
@@ -206,5 +234,8 @@ private fun LegacyProductoVenta.toNew(): ProductoVenta = ProductoVenta(
     nombre = nombre,
     cantidad = cantidad,
     precio = precio.roundToLong(),
-    subtotal = subtotal.roundToLong()
+    subtotal = subtotal.roundToLong(),
+    descuento = 0L,
+    iva = 0.0,
+    devuelto = 0
 )

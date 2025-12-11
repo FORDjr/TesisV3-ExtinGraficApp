@@ -23,28 +23,19 @@ object AuthManager {
     
     private val apiClient = AuthApiClient()
 
-    // Login inteligente con detección automática de conectividad
+    // Login: intenta siempre online primero; si hay fallo de red, cae a modo demo
     suspend fun login(email: String, password: String): Boolean {
         _authState.value = _authState.value.copy(isLoading = true, error = "")
 
-        try {
-            // Primero verificar si hay conexión al servidor
-            val hayConexion = testConnection()
+        val onlineResult = loginServidor(email, password)
+        if (onlineResult) return true
 
-            if (hayConexion) {
-                // MODO ONLINE: Solo usuarios reales de la base de datos
-                println("🌐 Modo ONLINE: Validando usuario con base de datos...")
-                return loginServidor(email, password)
-            } else {
-                // MODO OFFLINE: Solo usuarios demo predefinidos
-                println("📱 Modo OFFLINE: Validando usuario demo...")
-                return loginModoDemo(email, password)
-            }
-        } catch (e: Exception) {
-            // Si hay error inesperado, determinar el modo basado en el tipo de error
-            println("⚠️ Error inesperado: ${e.message}")
-            return loginModoDemo(email, password)
+        // Si falló por credenciales o red, intentamos modo demo solo si coincide
+        val demoResult = loginModoDemo(email, password)
+        if (!demoResult && !_authState.value.isAuthenticated) {
+            _authState.value = _authState.value.copy(isLoading = false)
         }
+        return demoResult
     }
 
     // Login con servidor (modo online)
@@ -60,7 +51,7 @@ object AuthManager {
                             isAuthenticated = true,
                             userEmail = response.usuario.email,
                             userName = "${response.usuario.nombre} ${response.usuario.apellido}",
-                            userRole = response.usuario.rol,
+                            userRole = response.usuario.rol.uppercase(),
                             userId = response.usuario.id,
                             token = response.token ?: "",
                             isLoading = false,
@@ -113,7 +104,7 @@ object AuthManager {
                     isAuthenticated = true,
                     userEmail = usuarioDemo.email,
                     userName = "${usuarioDemo.nombre} ${usuarioDemo.apellido}",
-                    userRole = usuarioDemo.rol,
+                    userRole = usuarioDemo.rol.uppercase(),
                     userId = 999, // ID demo
                     token = "demo_token_${System.currentTimeMillis()}",
                     isLoading = false,
@@ -205,6 +196,15 @@ object AuthManager {
     fun getUserRole(): String = _authState.value.userRole
     fun getUserId(): Int = _authState.value.userId
     fun getToken(): String = _authState.value.token
+
+    fun applyProfileUpdate(usuario: UsuarioResponse) {
+        _authState.value = _authState.value.copy(
+            userEmail = usuario.email,
+            userName = "${usuario.nombre} ${usuario.apellido}".trim(),
+            userRole = usuario.rol.uppercase(),
+            userId = usuario.id
+        )
+    }
 
     // Probar conexión con el servidor
     suspend fun testConnection(): Boolean {

@@ -13,6 +13,8 @@ import org.example.project.LOCAL_SERVER_URL
 import org.example.project.data.model.*
 import org.example.project.preferredBaseUrl
 import io.ktor.client.statement.bodyAsText
+import org.example.project.data.auth.AuthManager
+import kotlinx.datetime.Clock
 
 class MovimientosApiService {
     companion object {
@@ -40,6 +42,12 @@ class MovimientosApiService {
         install(Logging) {
             logger = Logger.DEFAULT
             level = LogLevel.INFO
+        }
+        install(io.ktor.client.plugins.DefaultRequest) {
+            val token = AuthManager.getToken()
+            if (token.isNotBlank()) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+            }
         }
     }
 
@@ -117,9 +125,12 @@ class MovimientosApiService {
     }
 
     suspend fun crearMovimiento(request: CrearMovimientoRequest): MovimientoInventario = makeRequest { base ->
+        val payload = if (request.idempotenciaKey.isNullOrBlank()) {
+            request.copy(idempotenciaKey = "mov-${Clock.System.now().toEpochMilliseconds()}")
+        } else request
         httpClient.post("$base$API_PATH") {
             contentType(ContentType.Application.Json)
-            setBody(request)
+            setBody(payload)
         }.body()
     }
 
@@ -144,9 +155,15 @@ class MovimientosApiService {
     suspend fun exportLinks(filtros: KardexFilters): ExportLinks {
         val base = findWorkingUrl() ?: throw Exception("Servidor no disponible")
         val query = buildQueryString(filtros)
+        val token = AuthManager.getToken().takeIf { it.isNotBlank() }?.let { "token=$it" }
+        val queryWithToken = when {
+            token == null -> query
+            query.isBlank() -> "?$token"
+            else -> "$query&$token"
+        }
         return ExportLinks(
-            csv = "$base$API_PATH/export/csv$query",
-            pdf = "$base$API_PATH/export/pdf$query"
+            csv = "$base$API_PATH/export/csv$queryWithToken",
+            pdf = "$base$API_PATH/export/pdf$queryWithToken"
         )
     }
 

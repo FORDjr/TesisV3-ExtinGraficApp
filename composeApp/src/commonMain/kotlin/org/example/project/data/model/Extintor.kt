@@ -11,8 +11,10 @@ data class ExtintorResponse(
     val tipo: String,
     val agente: String,
     val capacidad: String,
+    val ubicacion: String? = null,
+    val estadoLogistico: String? = null,
     val fechaProximoVencimiento: String? = null,
     val diasParaVencer: Long? = null,
-    val color: String = "gris"
+    val color: String = "gris",
+    val estado: String? = null
 )
-

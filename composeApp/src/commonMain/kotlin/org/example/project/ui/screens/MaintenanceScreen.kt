@@ -58,7 +58,6 @@ private enum class MaintenanceTab(val label: String) {
     WORKSHOP("Taller"),
     FIELD("Terreno"),
     LOANS("Prestamos"),
-    QR("QR"),
     PARTS("Repuestos")
 }
 
@@ -74,8 +73,7 @@ fun MaintenanceScreen(
     val extinguisherAssets by viewModel.extinguishers.collectAsState()
     val authState by AuthManager.authState.collectAsState()
 
-    var selectedTab by remember { mutableStateOf(MaintenanceTab.QR) }
-    var showCreateDialog by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf(MaintenanceTab.WORKSHOP) }
     var editingExtinguisher by remember { mutableStateOf<ExtinguisherAsset?>(null) }
     val actorName = authState.userName.ifBlank { "Tecnico" }
 
@@ -115,33 +113,19 @@ fun MaintenanceScreen(
                 loans = loanRecords,
                 emptyMessage = "Sin prestamos activos"
             )
-            MaintenanceTab.QR -> QrExtinguisherList(
-                assets = extinguisherAssets,
-                onReprint = { code ->
-                    viewModel.reprintQr(code, actorName, "Reimpresion desde app")
-                },
-                onCreate = { showCreateDialog = true },
-                onMove = { asset -> editingExtinguisher = asset }
-            )
             MaintenanceTab.PARTS -> PartsSection(viewModel = viewModel)
         }
-    }
 
-    if (showCreateDialog) {
-        CreateExtinguisherDialog(
-            suggestedCode = "E${extinguisherAssets.size + 1}",
-            onDismiss = { showCreateDialog = false },
-            onCreate = { code, owner, location, status, notes, reportResult ->
-                viewModel.createExtinguisher(code, owner, location, status, actorName, notes) { result ->
-                    if (result.isSuccess) {
-                        reportResult(null)
-                        showCreateDialog = false
-                    } else {
-                        val message = result.exceptionOrNull()?.localizedMessage ?: "No se pudo crear el extintor"
-                        reportResult(message)
-                    }
-                }
-            }
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Extintores",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        QrExtinguisherList(
+            assets = extinguisherAssets,
+            onReprint = { code -> viewModel.reprintQr(code, actorName, "Reimpresion desde app") },
+            onMove = { asset -> editingExtinguisher = asset }
         )
     }
 
@@ -404,10 +388,9 @@ private fun LoanRecordCard(loan: LoanRecord) {
 }
 
 @Composable
-private fun QrExtinguisherList(
+fun QrExtinguisherList(
     assets: List<ExtinguisherAsset>,
     onReprint: (String) -> Unit,
-    onCreate: () -> Unit,
     onMove: (ExtinguisherAsset) -> Unit
 ) {
     var selectedFilter by remember { mutableStateOf(ExtinguisherFilter.ALL) }
@@ -416,29 +399,17 @@ private fun QrExtinguisherList(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "Extintores con QR",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "${filtered.size} de ${assets.size} mostrando",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            ExtintorButton(
-                text = "Crear QR",
-                icon = Icons.Filled.Add,
-                variant = ButtonVariant.Primary,
-                onClick = onCreate
+        Column {
+            Text(
+                text = "Extintores con QR",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "${filtered.size} de ${assets.size} mostrando",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -469,7 +440,7 @@ private fun QrExtinguisherList(
 }
 
 @Composable
-private fun QrExtinguisherCard(
+fun QrExtinguisherCard(
     asset: ExtinguisherAsset,
     onReprint: () -> Unit,
     onMove: () -> Unit
@@ -720,7 +691,7 @@ private fun AddStockDialog(
 }
 
 @Composable
-private fun CreateExtinguisherDialog(
+fun CreateExtinguisherDialog(
     suggestedCode: String,
     onDismiss: () -> Unit,
     onCreate: (
@@ -810,7 +781,7 @@ private fun CreateExtinguisherDialog(
 }
 
 @Composable
-private fun MoveExtinguisherDialog(
+fun MoveExtinguisherDialog(
     asset: ExtinguisherAsset,
     onDismiss: () -> Unit,
     onMove: (

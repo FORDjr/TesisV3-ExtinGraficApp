@@ -19,8 +19,10 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,13 +43,21 @@ import androidx.compose.ui.unit.dp
 import org.example.project.data.auth.AuthManager
 import org.example.project.ui.components.ExtintorCard
 import org.example.project.ui.theme.ExtintorColors
+import org.example.project.ui.viewmodel.ProfileViewModel
 
 @Composable
 fun ProfileScreen(
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    viewModel: ProfileViewModel = remember { ProfileViewModel() }
 ) {
     val authState by AuthManager.authState.collectAsState()
+    val uiState by viewModel.state.collectAsState()
     var showEditDialog by remember { mutableStateOf(false) }
+    val usuario = uiState.usuario
+    val displayName = usuario?.let { "${it.nombre} ${it.apellido}".trim() }.takeUnless { it.isNullOrBlank() } ?: authState.userName
+    val displayEmail = usuario?.email ?: authState.userEmail
+    val displayRole = usuario?.rol ?: authState.userRole
+    val displayId = usuario?.id ?: authState.userId
 
     Column(
         modifier = Modifier
@@ -56,11 +66,18 @@ fun ProfileScreen(
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         ProfileHeaderCard(
-            name = authState.userName,
-            email = authState.userEmail,
-            role = authState.userRole,
-            userId = authState.userId
+            name = displayName,
+            email = displayEmail,
+            role = displayRole,
+            userId = displayId
         )
+
+        uiState.success?.let {
+            Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+        }
+        uiState.error?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
 
         Text(
             text = "Acciones",
@@ -98,14 +115,15 @@ fun ProfileScreen(
     }
 
     if (showEditDialog) {
-        AlertDialog(
-            onDismissRequest = { showEditDialog = false },
-            title = { Text("Editar perfil") },
-            text = { Text("Esta funcion estara disponible proximamente.") },
-            confirmButton = {
-                TextButton(onClick = { showEditDialog = false }) {
-                    Text("Entendido")
-                }
+        ProfileEditDialog(
+            initialName = usuario?.nombre ?: authState.userName.substringBefore(" "),
+            initialLastName = usuario?.apellido ?: authState.userName.substringAfter(" ", ""),
+            initialEmail = displayEmail,
+            loading = uiState.isLoading,
+            onDismiss = { showEditDialog = false },
+            onSubmit = { nombre, apellido, email ->
+                viewModel.actualizarPerfil(nombre, apellido, email)
+                showEditDialog = false
             }
         )
     }
@@ -169,7 +187,7 @@ private fun ProfileHeaderCard(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ProfileBadge(text = role.ifBlank { "Administrador" })
                 val code = if (userId > 0) "USR-%03d".format(userId) else "USR-001"
-                ProfileBadge(text = "ID: ")
+                ProfileBadge(text = "ID: $code")
             }
         }
     }
@@ -260,6 +278,52 @@ private fun InfoRow(label: String, value: String) {
             fontWeight = FontWeight.SemiBold
         )
     }
+}
+
+@Composable
+private fun ProfileEditDialog(
+    initialName: String,
+    initialLastName: String,
+    initialEmail: String,
+    loading: Boolean,
+    onDismiss: () -> Unit,
+    onSubmit: (String, String, String) -> Unit
+) {
+    var nombre by remember { mutableStateOf(initialName) }
+    var apellido by remember { mutableStateOf(initialLastName) }
+    var email by remember { mutableStateOf(initialEmail) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Editar perfil") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = nombre,
+                    onValueChange = { nombre = it },
+                    label = { Text("Nombre") }
+                )
+                OutlinedTextField(
+                    value = apellido,
+                    onValueChange = { apellido = it },
+                    label = { Text("Apellido") }
+                )
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") }
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSubmit(nombre.trim(), apellido.trim(), email.trim()) }, enabled = !loading) {
+                Text(if (loading) "Guardando..." else "Guardar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !loading) { Text("Cancelar") }
+        }
+    )
 }
 
 private fun String.extractInitials(): String {

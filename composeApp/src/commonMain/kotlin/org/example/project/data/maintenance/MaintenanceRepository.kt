@@ -13,11 +13,15 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.minus
 import org.example.project.data.model.YearMonth
+import org.example.project.data.api.CrearExtintorRequest
+import org.example.project.data.api.CrearServiceRegistroRequest
 import org.example.project.data.api.MaintenanceApiService
 import org.example.project.data.api.RemoteCliente
 import org.example.project.data.api.RemoteExtintor
 import org.example.project.data.api.RemoteOrdenServicio
 import org.example.project.data.api.RemoteSede
+import org.example.project.data.api.ServiceRegistroResponse
+import org.example.project.data.api.ActualizarExtintorRequest
 import kotlin.math.max
 
 private const val DEFAULT_OWNER = "ExtinGrafic"
@@ -46,6 +50,35 @@ class MaintenanceRepository {
     private var loanCounter = 1
     private var historyCounter = 1
     private var movementCounter = 1
+    private var cachedClientes: List<RemoteCliente> = emptyList()
+    private var cachedSedes: List<RemoteSede> = emptyList()
+
+    suspend fun scanExtintor(codigo: String): RemoteExtintor? = try {
+        api.scanExtintor(codigo)
+    } catch (e: Exception) {
+        println("scanExtintor error: ${e.message}")
+        null
+    }
+
+    suspend fun registrarServicio(
+        extintorId: Int,
+        tecnicoId: Int?,
+        ordenId: Int?,
+        observaciones: String?,
+        pesoInicial: String?
+    ): ServiceRegistroResponse {
+        val req = CrearServiceRegistroRequest(
+            extintorId = extintorId,
+            tecnicoId = tecnicoId,
+            ordenId = ordenId,
+            observaciones = observaciones,
+            pesoInicial = pesoInicial
+        )
+        val resp = api.registrarServicio(req)
+        // refrescar datos para reflejar nuevo vencimiento/estado
+        refreshFromBackend()
+        return resp
+    }
 
     suspend fun refreshFromBackend() {
         try {
@@ -53,6 +86,8 @@ class MaintenanceRepository {
             val sedes = api.obtenerSedes()
             val extintores = api.obtenerExtintores()
             val ordenes = api.obtenerOrdenes()
+            cachedClientes = clientes
+            cachedSedes = sedes
 
             val clientesMap = clientes.associateBy { it.id }
             val sedesMap = sedes.associateBy { it.id }
@@ -119,26 +154,42 @@ class MaintenanceRepository {
         return record
     }
 
-    fun createExtinguisher(
+    suspend fun createExtinguisher(
         code: String,
         owner: String,
         location: String?,
         status: ExtinguisherStatus,
         actor: String,
-        notes: String? = null
+        notes: String? = null,
+        clienteId: Int?,
+        sedeId: Int?
     ): ExtinguisherAsset {
-        val requestedCode = code.trim()
-        val normalizedCode = if (requestedCode.isBlank()) {
-            generateExtinguisherCode(extinguisherCounter++)
-        } else {
-            requestedCode
-        }
-        require(_extinguishers.value.none { it.code.equals(normalizedCode, ignoreCase = false) }) {
-            "Ya existe un extintor con el codigo $normalizedCode"
-        }
+        val normalizedCode = code.trim().ifBlank { generateExtinguisherCode(extinguisherCounter++) }
         val normalizedOwner = owner.ifBlank { DEFAULT_OWNER }
+        val clienteTarget = clienteId ?: cachedClientes.firstOrNull()?.id ?: 1
+        val sedeTarget = sedeId ?: cachedSedes.firstOrNull { it.clienteId == clienteTarget }?.id
+        val backend = runCatching {
+            api.crearExtintor(
+                CrearExtintorRequest(
+                    codigoQr = normalizedCode,
+                    clienteId = clienteTarget,
+                    sedeId = sedeTarget,
+                    tipo = "PQS",
+                    agente = "ABC",
+                    capacidad = "4kg",
+                    ubicacion = location,
+                    estadoLogistico = status.toBackend()
+                )
+            )
+        }.getOrNull()
+
+        refreshFromBackend()
+        val created = _extinguishers.value.firstOrNull { it.code == normalizedCode }
+        if (created != null) return created
+
+        // fallback local si backend fallo
         val entry = historyEntry(
-            action = "Creacion manual de QR",
+            action = "Creacion manual de QR (offline)",
             actor = actor,
             notes = notes ?: location
         )
@@ -153,9 +204,6 @@ class MaintenanceRepository {
             history = listOf(entry)
         )
         updateExtinguishers(asset)
-        if (requestedCode.isNotBlank()) {
-            extinguisherCounter = max(extinguisherCounter, _extinguishers.value.size + 1)
-        }
         return asset
     }
 
@@ -409,7 +457,7 @@ class MaintenanceRepository {
         return updated.qrInfo
     }
 
-    fun updateExtinguisherLocation(
+    suspend fun updateExtinguisherLocation(
         code: String,
         newLocation: String,
         actor: String,
@@ -417,6 +465,14 @@ class MaintenanceRepository {
         newStatus: ExtinguisherStatus? = null
     ): ExtinguisherAsset? {
         val asset = _extinguishers.value.firstOrNull { it.code == code } ?: return null
+        val backendStatus = newStatus?.toBackend() ?: asset.status.toBackend()
+        val req = ActualizarExtintorRequest(
+            ubicacion = newLocation,
+            estadoLogistico = backendStatus
+        )
+        runCatching {
+            asset.id?.let { api.actualizarExtintor(it, req) }
+        }
         val entry = historyEntry(
             action = "Actualizacion de ubicacion",
             actor = actor,
@@ -429,6 +485,7 @@ class MaintenanceRepository {
             history = asset.history + entry
         )
         updateExtinguishers(updated)
+        refreshFromBackend()
         return updated
     }
 
@@ -703,14 +760,21 @@ private fun RemoteExtintor.toAsset(
     val ownerName = clientes[clienteId]?.nombre ?: "Cliente #$clienteId"
     val sedeName = sedeId?.let { sedes[it]?.nombre }
     val intake = parseLocalDate(fechaProximoVencimiento) ?: currentDate()
+    val status = estadoLogistico.toExtinguisherStatusFromBackend()
+        ?: when {
+            estado != null -> estado.toExtinguisherStatus()
+            diasParaVencer != null -> diasParaVencer.toExtinguisherStatusFromDias()
+            else -> color.toExtinguisherStatus()
+        }
     return ExtinguisherAsset(
+        id = id,
         code = codigoQr,
         serialNumber = codigoQr,
         owner = ownerName,
-        location = sedeName,
+        location = ubicacion ?: sedeName,
         intakeDate = intake,
         lastMaintenanceDate = intake,
-        status = color.toExtinguisherStatus(),
+        status = status,
         qrInfo = QrInfo(code = codigoQr, payload = codigoQr),
         history = emptyList()
     )
@@ -745,9 +809,21 @@ private fun RemoteOrdenServicio.toMaintenanceRecord(
 }
 
 private fun String?.toExtinguisherStatus(): ExtinguisherStatus = when (this?.lowercase()) {
+    "vencido" -> ExtinguisherStatus.OUT_OF_SERVICE
+    "por_vencer" -> ExtinguisherStatus.IN_FIELD_SERVICE
     "rojo" -> ExtinguisherStatus.IN_WORKSHOP
     "amarillo" -> ExtinguisherStatus.IN_FIELD_SERVICE
+    "verde", "vigente" -> ExtinguisherStatus.AVAILABLE
     else -> ExtinguisherStatus.AVAILABLE
+}
+
+private fun String?.toExtinguisherStatusFromBackend(): ExtinguisherStatus? = when (this?.uppercase()) {
+    "DISPONIBLE" -> ExtinguisherStatus.AVAILABLE
+    "TALLER" -> ExtinguisherStatus.IN_WORKSHOP
+    "TERRENO" -> ExtinguisherStatus.IN_FIELD_SERVICE
+    "PRESTAMO" -> ExtinguisherStatus.ON_LOAN
+    "FUERA_SERVICIO" -> ExtinguisherStatus.OUT_OF_SERVICE
+    else -> null
 }
 
 private fun String.toMaintenanceStatus(): MaintenanceStatus = when (this.uppercase()) {
@@ -756,6 +832,20 @@ private fun String.toMaintenanceStatus(): MaintenanceStatus = when (this.upperca
     "CERRADA" -> MaintenanceStatus.COMPLETED
     "CANCELADA" -> MaintenanceStatus.CANCELLED
     else -> MaintenanceStatus.REGISTERED
+}
+
+private fun Long.toExtinguisherStatusFromDias(): ExtinguisherStatus = when {
+    this <= 0 -> ExtinguisherStatus.OUT_OF_SERVICE
+    this <= 30 -> ExtinguisherStatus.IN_FIELD_SERVICE
+    else -> ExtinguisherStatus.AVAILABLE
+}
+
+private fun ExtinguisherStatus.toBackend(): String = when (this) {
+    ExtinguisherStatus.AVAILABLE -> "DISPONIBLE"
+    ExtinguisherStatus.IN_WORKSHOP -> "TALLER"
+    ExtinguisherStatus.IN_FIELD_SERVICE -> "TERRENO"
+    ExtinguisherStatus.ON_LOAN -> "PRESTAMO"
+    ExtinguisherStatus.OUT_OF_SERVICE -> "FUERA_SERVICIO"
 }
 
 private fun parseLocalDate(value: String?): LocalDate? {

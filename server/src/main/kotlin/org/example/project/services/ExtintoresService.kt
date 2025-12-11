@@ -57,51 +57,22 @@ class ExtintoresService {
             tipo = req.tipo
             agente = req.agente
             capacidad = req.capacidad
+            ubicacion = req.ubicacion
+            estadoLogistico = req.estadoLogistico ?: EstadoLogisticoExtintor.DISPONIBLE
             fechaProximoVencimiento = fechaVenc
             estado = EstadoExtintor.VIGENTE
             fechaCreacion = ahora
             fechaActualizacion = ahora
         }
-        val (color, dias) = calcularColor(e.fechaProximoVencimiento)
-        val estadoActual = estadoDesdeDias(dias)
-        e.estado = estadoActual
-        ExtintorResponse(
-            e.id.value,
-            e.codigoQr,
-            e.clienteId.value,
-            e.sedeId?.value,
-            e.tipo,
-            e.agente,
-            e.capacidad,
-            e.fechaProximoVencimiento?.toString(),
-            dias,
-            color,
-            estadoActual
-        )
+        e.refreshEstado(ahora).first
     }
 
     fun listarExtintores(clienteId: Int?, sedeId: Int?, color: String?, page: Int? = null, size: Int? = null): List<ExtintorResponse> = transaction {
         var lista = Extintor.all().toList()
         if (clienteId != null) lista = lista.filter { it.clienteId.value == clienteId }
         if (sedeId != null) lista = lista.filter { it.sedeId?.value == sedeId }
-        val mapped = lista.map {
-            val (c, dias) = calcularColor(it.fechaProximoVencimiento)
-            val estadoActual = estadoDesdeDias(dias)
-            if (it.estado != estadoActual) it.estado = estadoActual
-            ExtintorResponse(
-                it.id.value,
-                it.codigoQr,
-                it.clienteId.value,
-                it.sedeId?.value,
-                it.tipo,
-                it.agente,
-                it.capacidad,
-                it.fechaProximoVencimiento?.toString(),
-                dias,
-                c,
-                estadoActual
-            )
-        }.let { list -> color?.let { col -> list.filter { it.color == col } } ?: list }
+        val mapped = lista.map { it.refreshEstado().first }
+            .let { list -> color?.let { col -> list.filter { it.color == col } } ?: list }
         if (page != null && size != null && page >=0 && size>0) {
             val from = page * size
             val to = minOf(from + size, mapped.size)
@@ -150,24 +121,11 @@ class ExtintoresService {
         update.tipo?.let { ext.tipo = it }
         update.agente?.let { ext.agente = it }
         update.capacidad?.let { ext.capacidad = it }
+        update.ubicacion?.let { ext.ubicacion = it }
+        update.estadoLogistico?.let { ext.estadoLogistico = it }
         update.fechaProximoVencimiento?.let { ext.fechaProximoVencimiento = LocalDateTime.parse(it) }
         ext.fechaActualizacion = ahora
-        val (color, dias) = calcularColor(ext.fechaProximoVencimiento)
-        val estadoActual = estadoDesdeDias(dias)
-        if (ext.estado != estadoActual) ext.estado = estadoActual
-        ExtintorResponse(
-            ext.id.value,
-            ext.codigoQr,
-            ext.clienteId.value,
-            ext.sedeId?.value,
-            ext.tipo,
-            ext.agente,
-            ext.capacidad,
-            ext.fechaProximoVencimiento?.toString(),
-            dias,
-            color,
-            estadoActual
-        )
+        ext.refreshEstado(ahora).first
     }
 
     fun actualizarEstadoOrden(id: Int, estado: EstadoOrdenServicio): OrdenServicioResponse? = transaction {
@@ -180,13 +138,16 @@ class ExtintoresService {
     }
 
     /* ---------------- Certificados ---------------- */
-    fun emitirCertificado(extintorId: Int): CertificadoResponse? = transaction {
+    fun emitirCertificado(extintorId: Int, supervisorId: Int? = null): CertificadoResponse? = transaction {
         val ext = Extintor.findById(extintorId) ?: return@transaction null
         val ahora = Clock.System.now().toLocalDateTime(TimeZone.UTC)
         val numero = "C-${ahora.date}-${extintorId}-${System.currentTimeMillis()%10000}".replace(":","-")
+        val cliente = Cliente.findById(ext.clienteId)
+        val sede = ext.sedeId?.let { Sede.findById(it) }
+        val supervisor = supervisorId?.let { Usuario.findById(it) }
         val pdfPath = try {
             PdfGenerator.ensureDir()
-            PdfGenerator.generarCertificado(numero, ext)
+            PdfGenerator.generarCertificado(numero, ext, cliente, sede, supervisor)
         } catch (e: Exception) {
             println("[PDF][ERROR] ${e.message}")
             null
@@ -233,24 +194,7 @@ class ExtintoresService {
                                 orden != null && orden.estado != EstadoOrdenServicio.CANCELADA && orden.fechaProgramada >= ahora
                             }
             }
-        }.map {
-            val (c, d) = calcularColor(it.fechaProximoVencimiento)
-            val estadoActual = estadoDesdeDias(d)
-            if (it.estado != estadoActual) it.estado = estadoActual
-            ExtintorResponse(
-                it.id.value,
-                it.codigoQr,
-                it.clienteId.value,
-                it.sedeId?.value,
-                it.tipo,
-                it.agente,
-                it.capacidad,
-                it.fechaProximoVencimiento?.toString(),
-                d,
-                c,
-                estadoActual
-            )
-        }
+        }.map { it.refreshEstado(ahora).first }
     }
 
     fun obtenerOrden(id: Int): OrdenServicioResponse? = transaction {
@@ -261,22 +205,133 @@ class ExtintoresService {
 
     fun obtenerExtintor(id: Int): ExtintorResponse? = transaction {
         val e = Extintor.findById(id) ?: return@transaction null
-        val (color, dias) = calcularColor(e.fechaProximoVencimiento)
-        val estadoActual = estadoDesdeDias(dias)
-        if (e.estado != estadoActual) e.estado = estadoActual
-        ExtintorResponse(
-            e.id.value,
-            e.codigoQr,
-            e.clienteId.value,
-            e.sedeId?.value,
-            e.tipo,
-            e.agente,
-            e.capacidad,
-            e.fechaProximoVencimiento?.toString(),
-            dias,
-            color,
-            estadoActual
+        e.refreshEstado().first
+    }
+
+    fun recalcularEstados(): RecalculoExtintoresResponse = transaction {
+        val ahora = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+        var actualizados = 0
+        val respuestas = Extintor.all().map { ext ->
+            val (resp, changed) = ext.refreshEstado(ahora)
+            if (changed) actualizados++
+            resp
+        }
+        RecalculoExtintoresResponse(
+            total = respuestas.size,
+            actualizados = actualizados,
+            vencidos = respuestas.count { it.estado == EstadoExtintor.VENCIDO },
+            porVencer = respuestas.count { it.estado == EstadoExtintor.POR_VENCER },
+            vigentes = respuestas.count { it.estado == EstadoExtintor.VIGENTE }
         )
+    }
+
+    fun agendaEventos(maxDias: Int = 60): List<AgendaEventResponse> = transaction {
+        val ahora = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+        val ahoraInstant = ahora.toInstant(TimeZone.UTC)
+        val extEvents = Extintor.all().mapNotNull { ext ->
+            val fecha = ext.fechaProximoVencimiento ?: return@mapNotNull null
+            val (resp, _) = ext.refreshEstado(ahora)
+            val diffDias = (fecha.toInstant(TimeZone.UTC).epochSeconds - ahoraInstant.epochSeconds) / 86400
+            if (diffDias > maxDias) return@mapNotNull null
+            val clienteNombre = Cliente.findById(ext.clienteId)?.nombre ?: "Cliente #${ext.clienteId.value}"
+            val sedeNombre = ext.sedeId?.let { sid -> Sede.findById(sid)?.nombre }
+            val descripcion = buildString {
+                append("Vence el ${fecha.date}")
+                append(" • ")
+                append(clienteNombre)
+                sedeNombre?.let { append(" / $it") }
+            }
+            AgendaEventResponse(
+                id = ext.id.value,
+                title = "Venc. ${ext.codigoQr}",
+                date = fecha.date.toString(),
+                rawDateTime = fecha.toString(),
+                daysToExpire = diffDias,
+                color = resp.color,
+                type = "EXTINTOR",
+                referenceId = ext.id.value,
+                estado = resp.estado.name,
+                cliente = clienteNombre,
+                sede = sedeNombre,
+                descripcion = descripcion,
+                codigo = ext.codigoQr
+            )
+        }
+
+        val ordenEvents = OrdenServicio.all().mapNotNull { ord ->
+            val diffDias = (ord.fechaProgramada.toInstant(TimeZone.UTC).epochSeconds - ahoraInstant.epochSeconds) / 86400
+            if (diffDias > maxDias) return@mapNotNull null
+            val clienteNombre = Cliente.findById(ord.clienteId)?.nombre ?: "Cliente #${ord.clienteId.value}"
+            val sedeNombre = ord.sedeId?.let { sid -> Sede.findById(sid)?.nombre }
+            val descripcion = buildString {
+                append("Programada para ${ord.fechaProgramada.date}")
+                append(" • ")
+                append(clienteNombre)
+                sedeNombre?.let { append(" / $it") }
+            }
+            AgendaEventResponse(
+                id = 100000 + ord.id.value,
+                title = "Orden ${ord.id.value}",
+                date = ord.fechaProgramada.date.toString(),
+                rawDateTime = ord.fechaProgramada.toString(),
+                daysToExpire = diffDias,
+                color = when (ord.estado) {
+                    EstadoOrdenServicio.PLANIFICADA -> "amarillo"
+                    EstadoOrdenServicio.EN_PROGRESO -> "verde"
+                    EstadoOrdenServicio.CERRADA -> "gris"
+                    EstadoOrdenServicio.CANCELADA -> "gris"
+                },
+                type = "ORDEN",
+                referenceId = ord.id.value,
+                estado = ord.estado.name,
+                cliente = clienteNombre,
+                sede = sedeNombre,
+                descripcion = descripcion
+            )
+        }
+
+        val alertaEvents = Alerta.all().mapNotNull { alerta ->
+            val fecha = alerta.fechaGenerada
+            val diffDias = (fecha.toInstant(TimeZone.UTC).epochSeconds - ahoraInstant.epochSeconds) / 86400
+            if (diffDias > maxDias) return@mapNotNull null
+            var clienteNombre: String? = null
+            var sedeNombre: String? = null
+            var codigoQr: String? = null
+            var descripcion = "Alerta sin detalle"
+
+            val extId = alerta.extintorId?.value
+            if (extId != null) {
+                val ext = Extintor.findById(extId)
+                clienteNombre = ext?.clienteId?.let { cid -> Cliente.findById(cid)?.nombre }
+                sedeNombre = ext?.sedeId?.let { sid -> Sede.findById(sid)?.nombre }
+                codigoQr = ext?.codigoQr
+                descripcion = ext?.fechaProximoVencimiento?.let { fv ->
+                    "Extintor ${ext.codigoQr} vence el ${fv.date}"
+                } ?: "Extintor ${ext?.codigoQr ?: extId}"
+            } else if (alerta.productoId != null) {
+                val prod = Producto.findById(alerta.productoId!!.value)
+                codigoQr = prod?.codigo
+                descripcion = "Stock crítico: ${prod?.nombre ?: "Producto #${alerta.productoId!!.value}"}"
+            }
+            AgendaEventResponse(
+                id = 200000 + alerta.id.value,
+                title = if (alerta.tipo.equals("STOCK", ignoreCase = true)) "Alerta de stock" else "Alerta de vencimiento",
+                date = fecha.date.toString(),
+                rawDateTime = fecha.toString(),
+                daysToExpire = diffDias,
+                color = if (alerta.tipo.equals("STOCK", ignoreCase = true)) "amarillo" else "rojo",
+                type = "ALERTA",
+                referenceId = alerta.extintorId?.value ?: alerta.productoId?.value,
+                estado = if (alerta.enviada) "ENVIADA" else "PENDIENTE",
+                cliente = clienteNombre,
+                sede = sedeNombre,
+                descripcion = descripcion,
+                codigo = codigoQr,
+                alertaId = alerta.id.value
+            )
+        }
+
+        (extEvents + ordenEvents + alertaEvents).sortedBy { it.rawDateTime ?: it.date }
     }
 
     private fun estadoDesdeDias(dias: Long?): EstadoExtintor = when {
@@ -284,5 +339,30 @@ class ExtintoresService {
         dias <= 0 -> EstadoExtintor.VENCIDO
         dias <= 30 -> EstadoExtintor.POR_VENCER
         else -> EstadoExtintor.VIGENTE
+    }
+
+    private fun Extintor.refreshEstado(ahora: LocalDateTime? = null): Pair<ExtintorResponse, Boolean> {
+        val (color, dias) = calcularColor(fechaProximoVencimiento)
+        val estadoActual = estadoDesdeDias(dias)
+        val changed = estado != estadoActual
+        if (changed) {
+            estado = estadoActual
+            if (ahora != null) fechaActualizacion = ahora
+        }
+        return ExtintorResponse(
+            id = id.value,
+            codigoQr = codigoQr,
+            clienteId = clienteId.value,
+            sedeId = sedeId?.value,
+            tipo = tipo,
+            agente = agente,
+            capacidad = capacidad,
+            ubicacion = ubicacion,
+            estadoLogistico = estadoLogistico,
+            fechaProximoVencimiento = fechaProximoVencimiento?.toString(),
+            diasParaVencer = dias,
+            color = color,
+            estado = estadoActual
+        ) to changed
     }
 }

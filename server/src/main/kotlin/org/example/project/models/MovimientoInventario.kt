@@ -22,6 +22,7 @@ object MovimientosInventario : IntIdTable("movimientos_inventario") {
     val requiereAprobacion = bool("requiere_aprobacion").default(false)
     val aprobadoPor = reference("aprobado_por", Usuarios).nullable()
     val fechaAprobacion = datetime("fecha_aprobacion").nullable()
+    val idempotenciaKey = varchar("idempotencia_key", 80).nullable().uniqueIndex()
 }
 
 class MovimientoInventario(id: EntityID<Int>) : IntEntity(id) {
@@ -40,6 +41,7 @@ class MovimientoInventario(id: EntityID<Int>) : IntEntity(id) {
     var requiereAprobacion by MovimientosInventario.requiereAprobacion
     var aprobadoPor by Usuario optionalReferencedOn MovimientosInventario.aprobadoPor
     var fechaAprobacion by MovimientosInventario.fechaAprobacion
+    var idempotenciaKey by MovimientosInventario.idempotenciaKey
 }
 
 enum class TipoMovimientoInventario { ENTRADA, SALIDA, AJUSTE }
@@ -61,7 +63,8 @@ data class MovimientoInventarioResponse(
     val estadoAprobacion: EstadoAprobacionMovimiento,
     val requiereAprobacion: Boolean,
     val aprobadoPor: Int? = null,
-    val fechaAprobacion: String? = null
+    val fechaAprobacion: String? = null,
+    val idempotenciaKey: String? = null
 )
 
 @Serializable
@@ -75,7 +78,8 @@ data class CrearMovimientoInventarioRequest(
     val usuarioId: Int? = null,
     val observaciones: String? = null,
     val fechaRegistro: String? = null,
-    val requiereAprobacion: Boolean? = null
+    val requiereAprobacion: Boolean? = null,
+    val idempotenciaKey: String? = null
 )
 
 @Serializable
