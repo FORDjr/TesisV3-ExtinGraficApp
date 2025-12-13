@@ -56,9 +56,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalUriHandler
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.coroutines.launch
 import org.example.project.data.models.EstadoVenta
 import org.example.project.data.models.ProductoVenta
@@ -68,6 +68,8 @@ import org.example.project.ui.viewmodel.VentasViewModel
 import org.example.project.utils.Formatters.formatPesos
 import org.example.project.preferredBaseUrl
 import org.example.project.data.auth.AuthManager
+import org.example.project.utils.platformContext
+import org.example.project.utils.shareText
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +80,7 @@ fun DetalleVentaScreen(
     ) {
     val uiState by viewModel.uiState.collectAsState()
     val ventaActual = uiState.ventas.firstOrNull { it.id == venta.id } ?: venta
+    val context = platformContext()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
@@ -393,7 +396,12 @@ fun DetalleVentaScreen(
                                 Text("Imprimir")
                             }
                             OutlinedButton(
-                                onClick = { /* TODO compartir */ },
+                                onClick = {
+                                    val token = AuthManager.getToken()
+                                    val tokenQuery = token.takeIf { it.isNotBlank() }?.let { "?token=$it" } ?: ""
+                                    val uri = "${preferredBaseUrl()}/api/ventas/${ventaActual.id}/comprobante/pdf$tokenQuery"
+                                    shareText(context, uri, "Comprobante ${ventaActual.id}")
+                                },
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Icon(
@@ -567,12 +575,23 @@ fun ResumenRow(titulo: String, valor: String) {
 }
 
 fun formatearFechaCompleta(fechaString: String): String {
-    return try {
-        val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault())
-        val outputFormat = SimpleDateFormat("dd 'de' MMMM 'de' yyyy 'a las' HH:mm", Locale("es", "ES"))
-        val fecha = inputFormat.parse(fechaString)
-        outputFormat.format(fecha ?: Date())
-    } catch (e: Exception) {
-        fechaString
+    runCatching {
+        val instant = Instant.parse(fechaString)
+        val local = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+        return "%04d-%02d-%02d   %02d:%02d".format(
+            local.date.year,
+            local.date.monthNumber,
+            local.date.dayOfMonth,
+            local.hour,
+            local.minute
+        )
     }
+    val cleaned = fechaString.replace("Z", "").trim()
+    val parts = cleaned.split("T")
+    if (parts.size == 2) {
+        val date = parts[0]
+        val time = parts[1].take(5)
+        return "$date   $time"
+    }
+    return fechaString
 }

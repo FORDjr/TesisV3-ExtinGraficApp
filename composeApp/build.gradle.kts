@@ -55,8 +55,6 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             // Ktor cliente Android unificado (3.2.0 via catálogo)
             implementation(libs.ktor.client.android)
-            // Material Icons para Android
-            implementation("androidx.compose.material:material-icons-extended:1.6.8")
             implementation("com.google.accompanist:accompanist-systemuicontroller:0.32.0")
         }
         commonMain.dependencies {
@@ -87,10 +85,12 @@ kotlin {
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
-            // Material Icons para Desktop
-            implementation("androidx.compose.material:material-icons-extended:1.6.8")
             // Ktor cliente CIO para desktop
             implementation(libs.ktor.client.cio)
+            implementation("com.google.zxing:core:3.5.3")
+        }
+        androidMain.dependencies {
+            implementation("com.google.zxing:core:3.5.3")
         }
     }
 }

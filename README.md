@@ -1,91 +1,79 @@
-# TesisV3 ExtinGraficApp
+# ExtinGraficApp (Kotlin Multiplatform + Ktor)
 
-Plataforma de inventario/extintores con backend Ktor + PostgreSQL y app Kotlin Multiplatform (Android/iOS/Desktop). Kardex con filtros, exportación PDF/CSV y aprobación de ajustes.
+Suite para gestión de extintores, inventario/ventas y agenda de servicios. Backend Ktor + Postgres en Docker, cliente KMP (Android/iOS/Desktop) con Compose.
 
-## Funcionalidades
-- Inventario con soft-delete, filtros y paginación.
-- Movimientos: entradas, salidas, ajustes; ajustes pendientes con aprobación/rechazo.
-- Kardex por producto con filtros de tipo/estado/fechas y exportación PDF/CSV.
-- Restock desde Inventario registra movimiento **ENTRADA** (solo permite mantener/aumentar stock).
-- Ventas generan salidas de stock automáticamente.
+## Qué hay en el repo
+- `server/`: Ktor + Exposed + Postgres (Docker Compose).
+- `composeApp/`: app KMP (Android, iOS, Desktop).
+- `shared/`: modelos y servicios comunes.
+- Artefacto desktop generado: `composeApp/build/compose/binaries/main/msi/org.example.project-1.0.0.msi` (instalador MSI).
 
-## Stack
-- Backend: Ktor, Exposed, PostgreSQL, HikariCP, iText.
-- App: Kotlin Multiplatform + Compose Multiplatform, Ktor Client.
-- Infra local: Docker Compose (server + db).
+## Credenciales demo
+- Usuario admin: `admin@extingrafic.com`
+- Password: `Admin123!`
 
-## Correr rápido (Docker)
+## Requisitos
+- JDK 21 (ej.: `C:\Program Files\Eclipse Adoptium\jdk-21.0.9.10-hotspot`).
+- Docker / Docker Compose (para backend + DB).
+- Android SDK configurado en `local.properties` (para build Android).
+- ngrok activo si expones el backend públicamente.
+
+## Backend (Docker)
 ```bash
-# Generar jar
-JAVA_HOME= ./gradlew :server:shadowJar
-
-# Levantar stack (usa credenciales del docker-compose)
-docker compose up -d
+# Desde Windows PowerShell o WSL
+./gradlew :server:shadowJar --no-build-cache
+docker compose build server
+docker compose up -d db server   # o docker compose restart server si ya existen
 ```
+Variables principales: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.  
+Endpoint de salud: `GET /health`.
 
-Variables de entorno (ejemplo)
-- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+## URL base / túnel
+Configurable por `SERVER_BASE_URL` (var. de entorno o `local.properties`). En este entorno se está usando:  
+`https://shantae-nonimaginational-rima.ngrok-free.dev`
 
-## App (KMP)
-- Build debug: `JAVA_HOME= ./gradlew :composeApp:assembleDebug`
-- Emulador Android: el cliente intenta `10.0.2.2:8080` como fallback.
-- Kardex screen: filtros, export PDF/CSV, crear ajustes pendientes, aprobar/rechazar.
-
-## API rápida
-- Inventario:
-  - `GET /api/inventario?search=&estado=&limit=&offset=`
-  - `POST /api/inventario`
-  - `PUT /api/inventario/{id}`
-  - `PATCH /api/inventario/{id}/stock` (restock → ENTRADA; solo ≥ stock actual)
-  - `PATCH /api/inventario/{id}/estado`
-- Movimientos:
-  - `POST /api/movimientos` (ENTRADA/SALIDA/AJUSTE; ajustes pueden ser pendientes)
-  - `POST /api/movimientos/{id}/aprobar` (aprobado=true/false)
-  - `GET /api/movimientos/kardex?productoId=&desde=&hasta=&tipo=&estado=`
-  - `GET /api/movimientos/export/csv|pdf?productoId=...`
-- Salud: `GET /health`
-
-### Ejemplos (reemplaza `<BASE_URL>`)
-```bash
-# Kardex (fechas inclusivas)
-curl "<BASE_URL>/api/movimientos/kardex?productoId=1&desde=2025-12-01&hasta=2025-12-31"
-
-# Ajuste pendiente
-curl -X POST <BASE_URL>/api/movimientos \
-  -H "Content-Type: application/json" \
-  -d '{"productoId":1,"tipo":"AJUSTE","cantidad":-2,"motivo":"Conteo físico","requiereAprobacion":true}'
-
-# Aprobar ajuste (id=10)
-curl -X POST <BASE_URL>/api/movimientos/10/aprobar \
-  -H "Content-Type: application/json" \
-  -d '{"aprobado":true,"usuarioId":1}'
-
-# Restock (registra ENTRADA)
-curl -X PATCH <BASE_URL>/api/inventario/1/stock \
-  -H "Content-Type: application/json" \
-  -d '{"cantidad":120}'
+## App Android
+```powershell
+$env:SERVER_BASE_URL="https://shantae-nonimaginational-rima.ngrok-free.dev"
+.\gradlew.bat :composeApp:assembleDebug
 ```
+El APK debug queda en `composeApp/build/outputs/apk/debug/`.
 
-## Flujo sugerido
-1) Levanta backend (Docker).  
-2) En la app, selecciona producto → Consultar → ver Kardex.  
-3) Restock desde Inventario (PATCH stock) → ENTRADA.  
-4) Venta → SALIDA automática.  
-5) Ajuste físico → crear pendiente → aprobar/rechazar → stock se mueve al aprobar.
-
-## Notas
-- Fechas en Kardex: `desde/hasta` son inclusivas; `YYYY-MM-DD` se interpreta como inicio/fin de día.
-- Seeds incluidos (productos/usuarios/movimientos) para pruebas locales.
-
-## Estructura
+## App Desktop (Windows)
+```powershell
+$env:SERVER_BASE_URL="https://shantae-nonimaginational-rima.ngrok-free.dev"
+$env:JAVA_HOME="C:\Program Files\Eclipse Adoptium\jdk-21.0.9.10-hotspot"
+.\gradlew.bat :composeApp:run          # ejecutar
+.\gradlew.bat :composeApp:packageDistributionForCurrentOS  # generar MSI
 ```
-composeApp/   # App KMP (Android/iOS/Desktop)
-server/       # Backend Ktor + Exposed
-shared/       # Código común (network, models)
+Instalador generado: `composeApp/build/compose/binaries/main/msi/org.example.project-1.0.0.msi`.  
+Si necesitas compartirlo públicamente, súbelo como asset a GitHub Releases (no se versiona en git por tamaño).
+
+## App iOS
+- Abrir `iosApp/` en Xcode y apuntar el `SERVER_BASE_URL` en `local.properties`/entorno.
+- Framework generado por el target `iosArm64/iosSimulatorArm64` (`ComposeApp`).
+
+## Funcionalidades clave
+- Extintores: creación con cliente/sede obligatoria, escaneo QR, sticker/imprimir, mover extintor, servicio y próximo vencimiento.
+- Servicios y calendario: agenda unificada; diálogo “Servicio realizado” + “Próxima fecha por vencer”; títulos “Venc. EXT-xxx”; alertas duplicadas filtradas.
+- Clientes y sedes: pantalla combinada, dropdowns filtrables, validación de RUT.
+- Inventario/Ventas: stock crítico, flujo de ventas, devoluciones parciales, kardex/ajustes, export CSV/PDF.
+- Mantención: tabs Taller/Terreno, consumo de servicios desde backend (préstamos/repuestos ocultos).
+
+## Flujo rápido sugerido
+1) Levanta backend + DB (`docker compose up -d db server`) y verifica ngrok.  
+2) Desktop/Android: setea `SERVER_BASE_URL` al túnel y ejecuta `:composeApp:run` o instala el MSI.  
+3) Login admin y recorre: Inventario → Ventas → Extintores (crear/mover/servicio) → Clientes/Sedes → Calendario.
+
+## Notas y pendientes
+- Backend actualiza estado de extintores según fechas; revisar envío de fabricación/última recarga en requests (casos pendientes).
+- Servicios desde QR/calendario actualizan próximo vencimiento; flujo de fabricación/recarga pendiente de confirmación.
+- SLF4J sin binder en desktop → logger NOP (no afecta ejecución).
+
+## Estructura rápida
+```
+composeApp/   # App KMP (androidMain, iosMain, desktopMain, commonMain)
+server/       # Backend Ktor
+shared/       # Código común
 docker-compose.yml
 ```
-
-## Próximos pasos
-- Actualizar screenshots y assets.
-- Subir configuraciones de despliegue al servidor final.
-- Añadir instrucciones para certificados/DOMINIO cuando esté en producción.
